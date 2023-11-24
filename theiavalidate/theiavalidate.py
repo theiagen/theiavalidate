@@ -16,17 +16,17 @@ def main():
                       help="the second table to compare", type=CheckInputs.is_table_valid)
   parser.add_argument("-v", "--version", 
                       action='version', version=str(__VERSION__))
-  parser.add_argument("-o", "--output_prefix", 
-                      help="the output file name prefix\nDo not include any spaces", default="theiavalidate", metavar="\b")
   parser.add_argument("-c", "--columns_to_compare",
-                      help="a comma-separated list of columns to compare\nIf not provided, no columns will be compared", default=None, metavar="\b", type=CheckInputs.is_comma_delimited_list)
+                      help="a comma-separated list of columns to compare\nrequired for a successful run", default=None, metavar="\b", type=CheckInputs.is_comma_delimited_list)
   parser.add_argument("-m", "--validation_criteria", 
                       help="a tab-delimited file containing the validation criteria to check", default=None, metavar="\b", type=CheckInputs.is_table_valid)
+  parser.add_argument("-l", "--column_translation", 
+                      help="a tab-delimited file that links column names between the two tables", default=None, metavar="\b", type=CheckInputs.is_table_valid)
+  parser.add_argument("-o", "--output_prefix", 
+                      help="the output file name prefix\ndo not include any spaces", default="theiavalidate", metavar="\b")
   parser.add_argument("-n", "--na_values", 
                       help="the values that should be considered NA\ndefault values = ['-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a', '', '#NA', 'NULL', 'null', 'NaN', '-NaN', 'nan', '-nan', 'None']", 
                       default= ['-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a', '', '#NA', 'NULL', 'null', 'NaN', '-NaN', 'nan', '-nan', 'None'], metavar="\b", type=int)
-  parser.add_argument("-l", "--column_translation", 
-                      help="a tab-delimited file that links column names between the two tables", default=None, metavar="\b", type=CheckInputs.is_table_valid)
   parser.add_argument("--verbose", 
                       help="increase stdout verbosity", action="store_true", default=False)
   parser.add_argument("--debug", 
