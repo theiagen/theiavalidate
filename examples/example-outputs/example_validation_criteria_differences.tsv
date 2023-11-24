@@ -1,0 +1,7 @@
+Column	assembly_length	assembly_length	gambit_predicted_taxon	gambit_predicted_taxon	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes
+Table	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv
+sample01						
+sample02						
+sample03	4719410.0	5287603.0	Shigella	Shigella sonnei		glpT_E448K,gyrA_D87G,gyrA_S83L,sat2
+sample04						
+sample05						
