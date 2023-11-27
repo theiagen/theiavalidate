@@ -1,6 +1,6 @@
 # theiavalidate
 
-This repository is undergoing active development. Please check back soon for updates.
+Note: this repository is undergoing active development. Check back for updates.
 
 ## Docker
 
@@ -44,8 +44,6 @@ optional arguments:
   --debug
           increase stdout verbosity to debug; overwrites --verbose
 ```
-
-### Test Data
 
 ### Inputs Explained
 
