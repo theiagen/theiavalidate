@@ -2,10 +2,18 @@
 
 This repository is undergoing active development. Please check back soon for updates.
 
+## Docker
+
+We recommend using our Docker image to run this tool.
+
+```bash
+docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:0.0.1
+```
+
 ## Usage
 
 ```text
-usage: python3 theiavalidate/theiavalidate.py table1 table2 [options]
+usage: python3 theiavalidate.py table1 table2 [options]
 
 This tool compares two tab-delimited files and outputs a report of the differences between the two files.
 
