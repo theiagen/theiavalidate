@@ -45,7 +45,11 @@ optional arguments:
           increase stdout verbosity to debug; overwrites --verbose
 ```
 
+### Test Data
+
 ### Inputs Explained
+
+See also the [`examples`](https://github.com/theiagen/theiavalidate/tree/main/examples) folder for example inputs.
 
 #### Required: `table1` and `table2`
 
@@ -108,6 +112,18 @@ These two outputs increase the verbosity of the logging system to `INFO` and `DE
 ### Outputs Explained
 
 See also the [`examples`](https://github.com/theiagen/theiavalidate/tree/main/examples) folder for example outputs.
+
+Or, you can copy and paste following command in the Docker image to generate the example outputs.
+
+```bash
+theiavalidate.py \
+  theiavalidate/examples/example-table1.tsv \
+  theiavalidate/examples/example-table2.tsv \
+  -c "assembly_length,gambit_predicted_taxon,amrfinderplus_amr_core_genes,extra_column" \
+  -l theiavalidate/examples/example-column_translation.tsv \
+  -m theiavalidate/examples/example-validation_criteria.tsv \
+  -o example-output
+```
 
 #### `filtered_<table1_name>` and `filtered_<table2_name>`
 
