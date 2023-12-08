@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 import pdfkit as pdf
+import subprocess
 import sys
 
 class Validator:
@@ -317,6 +318,18 @@ class Validator:
     
     self.logger.info("Counting how many cells have values")
     self.count_populated_cells()
+
+    # test localizing files to compare using gcloud storage
+      # create directories for holding files to compare
+    dir1 = f"{self.table1_name}/"
+    dir2 = f"{self.table2_name}/"
+    os.mkdir(dir1)
+    os.mkdir(dir2)
+
+    # localize files to compare
+    # TODO map gs:// URI to local path
+    self.table1.apply(localize_files, dir=dir1, axis=1)
+    self.table2.apply(localize_files, dir=dir2, axis=1)
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
@@ -329,4 +342,9 @@ class Validator:
     self.make_pdf_report()
     
     self.logger.info("Done!")
-    
+
+def localize_files(row, dir):
+  for value in row:
+    if isinstance(value, str) and value.startswith("gs://"):
+      # copy file to local directory
+      subprocess.run(["gcloud", "storage", "cp", value, dir])
