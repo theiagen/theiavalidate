@@ -154,8 +154,10 @@ class Validator:
 
     # Ensure file_columns set only has GCP URIs and nulls
     for df in [self.table1, self.table2]:
-      remove_columns = df.columns[df.apply(lambda x: x.astype(str).str.startswith("gs://")
-                                          | x.isnull().all())]
+      remove_columns = df.columns[~(df.apply(lambda x: x.astype(str).str.startswith('gs://')
+                                             | x.isnull()).all())]
+
+# Convert the Index object to a set
       remove_columns = set(remove_columns.tolist())
       self.file_columns = self.file_columns - remove_columns
 

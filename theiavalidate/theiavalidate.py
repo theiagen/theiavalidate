@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import CheckInputs
-from __init__ import __VERSION__
-from Validator import Validator
+from . import CheckInputs
+from .__init__ import __VERSION__
+from .Validator import Validator
 
 DEFAULT_NA_VALUES = [
   '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a',
