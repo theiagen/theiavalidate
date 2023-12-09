@@ -140,7 +140,7 @@ class Validator:
   """
   This function determines columns with GCP URIs for file comparisons so that
   they are excluded from regular comparisons and instead use filecmp to compare
-  the downloaded files
+  the downloaded files.
   """
   def determine_file_columns(self):
     for df in [self.table1, self.table2]:
@@ -157,7 +157,7 @@ class Validator:
       remove_columns = df.columns[~(df.apply(lambda x: x.astype(str).str.startswith('gs://')
                                              | x.isnull()).all())]
 
-# Convert the Index object to a set
+      # Convert the Index object to a set
       remove_columns = set(remove_columns.tolist())
       self.file_columns = self.file_columns - remove_columns
 
@@ -348,14 +348,14 @@ class Validator:
     self.logger.info("Determining columns for file comparisons")
     self.determine_file_columns()
 
-    dir1 = f"table1_files/"
-    dir2 = f"table2_files/"
+    dir1 = "table1_files/"
+    dir2 = "table2_files/"
     os.mkdir(dir1)
     os.mkdir(dir2)
 
     self.logger.info("Localizing files to compare...")
-    self.table1.apply(localize_files, directory=dir1, axis=1)
-    self.table2.apply(localize_files, directory=dir2, axis=1)
+    self.table1[self.file_columns].apply(localize_files, directory=dir1)
+    self.table2[self.file_columns].apply(localize_files, directory=dir2)
 
     
     self.logger.info("Performing an exact string match")
