@@ -319,18 +319,17 @@ class Validator:
     self.logger.info("Counting how many cells have values")
     self.count_populated_cells()
 
-    # test localizing files to compare using gcloud storage
-      # create directories for holding files to compare
-    dir1 = f"{self.table1_name}_files/"
-    dir2 = f"{self.table2_name}_files/"
+    dir1 = f"table1_files/"
+    dir2 = f"table2_files/"
     os.mkdir(dir1)
     os.mkdir(dir2)
 
     # localize files to compare
-    self.table1.apply(localize_files, dir=dir1, axis=1)
-    self.table2.apply(localize_files, dir=dir2, axis=1)
+    self.table1.apply(localize_files, directory=dir1, axis=1)
+    self.table2.apply(localize_files, directory=dir2, axis=1)
 
-    subprocess.run(["ls", "-R", "compare_files"])
+    subprocess.run(["ls", "-R", dir1])
+    subprocess.run(["ls", "-R", dir2])
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
@@ -351,6 +350,7 @@ def localize_files(row, directory):
       # it would be much faster to copy them all at once, but any files with
       # the same name would be clobbered, so create local directories matching
       # gsutil path and loop to copy
-      destination_path = os.path.dirname(value[5:])
-      os.makedirs(os.path.join(directory, destination_path))
+      remote_path = os.path.dirname(value[5:])  # exclude 'gs://' prefix
+      destination_path = os.path.join(directory, remote_path)
+      os.makedirs(destination_path)
       subprocess.run(["gsutil", "-m", "cp", value, destination_path])
