@@ -319,6 +319,19 @@ class Validator:
     self.logger.info("Counting how many cells have values")
     self.count_populated_cells()
 
+    # test localizing files to compare using gcloud storage
+      # create directories for holding files to compare
+    dir1 = f"{self.table1_name}/"
+    dir2 = f"{self.table2_name}/"
+    os.mkdir(dir1)
+    os.mkdir(dir2)
+
+    # localize files to compare
+    self.table1.apply(localize_files, dir=dir1, axis=1)
+    self.table2.apply(localize_files, dir=dir2, axis=1)
+
+    subprocess.run(["ls", "-R", "compare_files"])
+    
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
 
@@ -330,3 +343,14 @@ class Validator:
     self.make_pdf_report()
     
     self.logger.info("Done!")
+
+def localize_files(row, dir):
+  for value in row:
+    if isinstance(value, str) and value.startswith("gs://"):
+      # copy files to to compare_files/ directory
+      # it would be much faster to copy them all at once, but any files with
+      # the same name would be clobbered, so create local directories matching
+      # gsutil path and loop to copy
+      destination_path = os.path.dirname(value[5:])
+      os.mkdirs(os.path.join("./compare_files/", destination_path)
+      subprocess.run(["gsutil", "-m", "cp", value, destination_path])
