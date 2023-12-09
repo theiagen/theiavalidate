@@ -321,8 +321,8 @@ class Validator:
 
     # test localizing files to compare using gcloud storage
       # create directories for holding files to compare
-    dir1 = f"{self.table1_name}/"
-    dir2 = f"{self.table2_name}/"
+    dir1 = f"{self.table1_name}_files/"
+    dir2 = f"{self.table2_name}_files/"
     os.mkdir(dir1)
     os.mkdir(dir2)
 
@@ -344,7 +344,7 @@ class Validator:
     
     self.logger.info("Done!")
 
-def localize_files(row, dir):
+def localize_files(row, directory):
   for value in row:
     if isinstance(value, str) and value.startswith("gs://"):
       # copy files to to compare_files/ directory
@@ -352,5 +352,5 @@ def localize_files(row, dir):
       # the same name would be clobbered, so create local directories matching
       # gsutil path and loop to copy
       destination_path = os.path.dirname(value[5:])
-      os.mkdirs(os.path.join("./compare_files/", destination_path)
+      os.makedirs(os.path.join(directory, destination_path))
       subprocess.run(["gsutil", "-m", "cp", value, destination_path])
