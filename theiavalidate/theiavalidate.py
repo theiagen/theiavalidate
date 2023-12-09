@@ -5,6 +5,11 @@ import CheckInputs
 from __init__ import __VERSION__
 from Validator import Validator
 
+DEFAULT_NA_VALUES = [
+  '-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a',
+  '', '#NA', 'NULL', 'null', 'NaN','-NaN', 'nan', '-nan', 'None'
+]
+
 def main():
   parser = argparse.ArgumentParser(
     description = "This tool compares two tab-delimited files and outputs a report of the differences between the two files.",
@@ -25,8 +30,8 @@ def main():
   parser.add_argument("-o", "--output_prefix", 
                       help="the output file name prefix\ndo not include any spaces", default="theiavalidate", metavar="\b")
   parser.add_argument("-n", "--na_values", 
-                      help="the values that should be considered NA\ndefault values = ['-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a', '', '#NA', 'NULL', 'null', 'NaN', '-NaN', 'nan', '-nan', 'None']", 
-                      default= ['-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a', '', '#NA', 'NULL', 'null', 'NaN', '-NaN', 'nan', '-nan', 'None'], metavar="\b", type=int)
+                      help=f"the values that should be considered NA\ndefault values = {DEFAULT_NA_VALUES}", 
+                      default=DEFAULT_NA_VALUES, metavar="\b", type=int)
   parser.add_argument("--verbose", 
                       help="increase stdout verbosity", action="store_true", default=False)
   parser.add_argument("--debug", 

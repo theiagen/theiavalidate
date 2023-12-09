@@ -39,7 +39,8 @@ class Validator:
     self.validation_criteria = options.validation_criteria
     self.columns_to_compare = options.columns_to_compare
     self.columns_to_compare.append("samples")
-    
+    self.file_columns = set()  # columns that contain GCP URIs to files
+
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
       
@@ -135,6 +136,29 @@ class Validator:
     self.logger.debug("Creating the summary table with the number of populated cells")
     self.summary_output = pd.concat([table1_populated_rows, table2_populated_rows], join="outer", axis=1)
   
+
+  """
+  This function determines columns with GCP URIs for file comparisons so that
+  they are excluded from regular comparisons and instead use filecmp to compare
+  the downloaded files
+  """
+  def determine_file_columns(self):
+    for df in [self.table1, self.table2]:
+      # select columns with at least one GCP URI among nulls
+      file_columns = df.columns[(df.apply(lambda x: x.astype(str).str.startswith("gs://")
+                                          | x.isnull()).all())
+                                & (~df.isnull().all())]
+
+      file_columns = file_columns.tolist()
+      self.file_columns.update(file_columns)
+
+    # Ensure file_columns set only has GCP URIs and nulls
+    for df in [self.table1, self.table2]:
+      remove_columns = df.columns[df.apply(lambda x: x.astype(str).str.startswith("gs://")
+                                          | x.isnull().all())]
+      remove_columns = set(remove_columns.tolist())
+      self.file_columns = self.file_columns - remove_columns
+
   """
   This function performs an exact match and creates and Excel file that contains the exact match differences
   """
@@ -319,17 +343,18 @@ class Validator:
     self.logger.info("Counting how many cells have values")
     self.count_populated_cells()
 
+    self.logger.info("Determining columns for file comparisons")
+    self.determine_file_columns()
+
     dir1 = f"table1_files/"
     dir2 = f"table2_files/"
     os.mkdir(dir1)
     os.mkdir(dir2)
 
-    # localize files to compare
+    self.logger.info("Localizing files to compare...")
     self.table1.apply(localize_files, directory=dir1, axis=1)
     self.table2.apply(localize_files, directory=dir2, axis=1)
 
-    subprocess.run(["ls", "-R", dir1])
-    subprocess.run(["ls", "-R", dir2])
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
@@ -350,7 +375,7 @@ def localize_files(row, directory):
       # it would be much faster to copy them all at once, but any files with
       # the same name would be clobbered, so create local directories matching
       # gsutil path and loop to copy
-      remote_path = os.path.dirname(value[5:])  # exclude 'gs://' prefix
+      remote_path = os.path.dirname(value.removeprefix('gs://'))
       destination_path = os.path.join(directory, remote_path)
       os.makedirs(destination_path)
       subprocess.run(["gsutil", "-m", "cp", value, destination_path])
