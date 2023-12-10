@@ -45,6 +45,7 @@ class Validator:
     self.file_columns = set()  # columns that contain GCP URIs to files
     self.table1_files_dir = "table1_files"
     self.table2_files_dir = "table2_files"
+    self.diff_dir = "file_diffs"
 
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
@@ -222,12 +223,13 @@ class Validator:
     comparison_df = pd.DataFrame(index=file_df1.index,
                                  columns=file_df1.columns)
 
-    for row in file_df1.index:
-      for col in file_df1.columns:
+    for col in file_df1.columns:
+      for row in file_df1.index:
         uri1 = file_df1.loc[row, col]
         uri2 = file_df2.loc[row, col]
         file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
         file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
+        print(f"files: {file1}, {file2}")
         if pd.isnull(file1) and pd.isnull(file2):
           # count two nulls as matching
           comparison_df.loc[row, col] = True
@@ -236,19 +238,20 @@ class Validator:
           comparison_df.loc[row, col] = is_match
           if not is_match:
             output_filename = f"{row}_{col}_diff.txt"
-            self.create_diff(file1, file2, output_filename)
+            output_path = os.path.join(self.diff_dir, output_filename)
+            self.create_diff(file1, file2, output_path)
         else:
           # count as not matching if pair is missing
           comparison_df.loc[row, col] = False
-      
-      number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
-      for col in comparison_df.columns:
-        count = comparison_df[col].dropna().ne(True).sum()
-        number_of_differences.loc[col] = count
 
-      return number_of_differences
+    number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
+    for col in comparison_df.columns:
+      count = comparison_df[col].dropna().ne(True).sum()
+      number_of_differences.loc[col] = count
 
-  def create_diff(self, file1, file2, output_filename):
+    return number_of_differences
+
+  def create_diff(self, file1, file2, output_path):
     # create unified diff
     with open(file1, "r") as f1, open(file2, "r") as f2:
       diff = difflib.unified_diff(
@@ -259,7 +262,9 @@ class Validator:
         lineterm='',
       )
       diff = "".join(diff)
-      with open(output_filename, "w") as out:
+
+      os.makedirs(os.path.dirname(output_path), exist_ok=True)
+      with open(output_path, "w") as out:
         out.write(diff)
 
   """
