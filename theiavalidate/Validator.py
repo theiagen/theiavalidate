@@ -43,6 +43,8 @@ class Validator:
     self.columns_to_compare = options.columns_to_compare
     self.columns_to_compare.append("samples")
     self.file_columns = set()  # columns that contain GCP URIs to files
+    self.table1_files_dir = "table1_files"
+    self.table2_files_dir = "table2_files"
 
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
@@ -182,7 +184,7 @@ class Validator:
       files_df2 = self.table2.set_index("samples")
       files_df1 = files_df1[list(self.file_columns)]
       files_df2 = files_df2[list(self.file_columns)]
-      file_number_of_differences = compare_files(files_df1, files_df2)
+      file_number_of_differences = self.compare_files(files_df1, files_df2)
     else:
       table1 = self.table1
       table2 = self.table2
@@ -224,8 +226,8 @@ class Validator:
       for col in file_df1.columns:
         uri1 = file_df1.loc[row, col]
         uri2 = file_df2.loc[row, col]
-        file1 = os.path.join("table1_files", uri1.removeprefix("gs://"))
-        file2 = os.path.join("table2_files", uri2.removeprefix("gs://"))
+        file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
+        file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
         if pd.isnull(file1) and pd.isnull(file2):
           # count two nulls as matching
           comparison_df.loc[row, col] = True
@@ -234,7 +236,7 @@ class Validator:
           comparison_df.loc[row, col] = is_match
           if not is_match:
             output_filename = f"{row}_{col}_diff.txt"
-            create_diff(file1, file2, output_filename)
+            self._create_diff(file1, file2, output_filename)
         else:
           # count as not matching if pair is missing
           comparison_df.loc[row, col] = False
@@ -418,8 +420,8 @@ class Validator:
     self.logger.info("Determining columns for file comparisons")
     self.determine_file_columns()
 
-    dir1 = "table1_files/"
-    dir2 = "table2_files/"
+    dir1 = f"{self.table1_files_dir}/"
+    dir2 = f"{self.table2_files_dir}/"
     os.mkdir(dir1)
     os.mkdir(dir2)
 

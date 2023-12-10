@@ -112,3 +112,31 @@ class TestDetermineFileColumns(unittest.TestCase):
 class TestCompareFiles(unittest.TestCase):
   def setUp(self):
     self.validator = Validator(MockOptions())
+    self.file_comparison_dir = "tests/file1_files"
+    self.file_comparison_dir = "tests/file2_files"
+
+  def test_matching_files(self):
+    df1 = pd.DataFrame({
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-2.txt"],
+      "col2": ["gs://match2-1.txt", "gs://match2-2.txt", "gs://match2-3.txt"]
+    })
+    df2 = pd.DataFrame({
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-2.txt"],
+      "col2": ["gs://match2-1.txt", "gs://match2-2.txt", "gs://match2-3.txt"]
+    })
+    observed = self.validator.compare_files(df1, df2)
+    expected = pd.DataFrame({
+      "Number of differences (exact match)": [0, 0]
+    })
+    expected.index = ["col1, col2"]
+    pd.testing.assert_frame_equal(observed, expected)
+
+  def test_mismatching_files(self):
+    pass
+
+  def test_mix_matching_files(self):
+    pass
+
+  def test_null_file(self):
+    pass
+
