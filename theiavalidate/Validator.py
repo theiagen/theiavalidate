@@ -216,49 +216,49 @@ class Validator:
     exact_differences_table.to_csv(self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
 
 
-    def compare_files(file_df1, file_df2):
-      comparison_df = pd.DataFrame(index=file_df1.index,
-                                   columns=file_df1.columns)
+  def compare_files(file_df1, file_df2):
+    comparison_df = pd.DataFrame(index=file_df1.index,
+                                  columns=file_df1.columns)
 
-      for row in file_df1.index:
-        for col in file_df1.columns:
-          uri1 = file_df1.loc[row, col]
-          uri2 = file_df2.loc[row, col]
-          file1 = os.path.join("table1_files", uri1.removeprefix("gs://"))
-          file2 = os.path.join("table2_files", uri2.removeprefix("gs://"))
-          if pd.isnull(file1) and pd.isnull(file2):
-            # count two nulls as matching
-            comparison_df.loc[row, col] = True
-          elif (not pd.isnull(file1) and not pd.isnull(file2)):
-            is_match = filecmp.cmp(file1, file2)
-            comparison_df.loc[row, col] = is_match
-            if not is_match:
-              output_filename = f"{row}_{col}_diff.txt"
-              create_diff(file1, file2, output_filename)
-          else:
-            # count as not matching if pair is missing
-            comparison_df.loc[row, col] = False
-        
-        number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
-        for col in number_of_differences.columns:
-          count = comparison_df[col].dropna().ne(True).sum()
-          number_of_differences.loc[col] = count
+    for row in file_df1.index:
+      for col in file_df1.columns:
+        uri1 = file_df1.loc[row, col]
+        uri2 = file_df2.loc[row, col]
+        file1 = os.path.join("table1_files", uri1.removeprefix("gs://"))
+        file2 = os.path.join("table2_files", uri2.removeprefix("gs://"))
+        if pd.isnull(file1) and pd.isnull(file2):
+          # count two nulls as matching
+          comparison_df.loc[row, col] = True
+        elif (not pd.isnull(file1) and not pd.isnull(file2)):
+          is_match = filecmp.cmp(file1, file2)
+          comparison_df.loc[row, col] = is_match
+          if not is_match:
+            output_filename = f"{row}_{col}_diff.txt"
+            create_diff(file1, file2, output_filename)
+        else:
+          # count as not matching if pair is missing
+          comparison_df.loc[row, col] = False
+      
+      number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
+      for col in number_of_differences.columns:
+        count = comparison_df[col].dropna().ne(True).sum()
+        number_of_differences.loc[col] = count
 
-        return number_of_differences
+      return number_of_differences
 
-    def create_diff(file1, file2, output_filename):
-      # create unified diff
-      with open(file1, "r") as f1, open(file2, "r") as f2:
-        diff = difflib.unified_diff(
-          f1.readlines(),
-          f2.readlines(),
-          fromfile=file1,
-          tofile=file2,
-          lineterm='',
-        )
-        diff = "".join(diff)
-        with open(output_filename, "w") as out:
-          out.write(diff)
+  def create_diff(file1, file2, output_filename):
+    # create unified diff
+    with open(file1, "r") as f1, open(file2, "r") as f2:
+      diff = difflib.unified_diff(
+        f1.readlines(),
+        f2.readlines(),
+        fromfile=file1,
+        tofile=file2,
+        lineterm='',
+      )
+      diff = "".join(diff)
+      with open(output_filename, "w") as out:
+        out.write(diff)
 
   """
   This function calculates the percent difference between two values
