@@ -432,8 +432,8 @@ class Validator:
     os.mkdir(dir2)
 
     self.logger.info("Localizing files to compare...")
-    self.table1[self.file_columns].apply(localize_files, directory=dir1)
-    self.table2[self.file_columns].apply(localize_files, directory=dir2)
+    self.table1[list(self.file_columns)].apply(localize_files, directory=dir1)
+    self.table2[list(self.file_columns)].apply(localize_files, directory=dir2)
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
