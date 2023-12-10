@@ -456,5 +456,5 @@ def localize_files(row, directory):
       # gsutil path and loop to copy
       remote_path = os.path.dirname(value.removeprefix("gs://"))
       destination_path = os.path.join(directory, remote_path)
-      os.makedirs(destination_path)
+      os.makedirs(destination_path, exist_ok=True)
       subprocess.run(["gsutil", "-m", "cp", value, destination_path])
