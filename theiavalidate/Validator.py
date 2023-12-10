@@ -220,7 +220,7 @@ class Validator:
 
   def compare_files(self, file_df1, file_df2):
     comparison_df = pd.DataFrame(index=file_df1.index,
-                                  columns=file_df1.columns)
+                                 columns=file_df1.columns)
 
     for row in file_df1.index:
       for col in file_df1.columns:
@@ -242,7 +242,7 @@ class Validator:
           comparison_df.loc[row, col] = False
       
       number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
-      for col in number_of_differences.columns:
+      for col in comparison_df.columns:
         count = comparison_df[col].dropna().ne(True).sum()
         number_of_differences.loc[col] = count
 
