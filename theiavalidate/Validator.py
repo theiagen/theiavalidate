@@ -173,6 +173,7 @@ class Validator:
   def perform_exact_match(self):
     self.logger.debug("Performing an exact match and removing the sample name column")
 
+    file_number_of_differences = None
     if self.file_columns:
       # exclude file_columns for string comparison
       table1 = self.table1.drop(list(self.file_columns), axis=1)
@@ -201,7 +202,8 @@ class Validator:
     # add the number of differences to the summary output table
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
-    
+    if file_number_of_differences is not None:
+      self.summary_output = pd.concat([self.summary_output, file_number_of_differences], join="outer", axis="1")
 
     # get a table of self-other differences
     # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
