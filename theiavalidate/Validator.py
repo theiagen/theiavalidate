@@ -1,5 +1,8 @@
 from datetime import date
 from pretty_html_table import build_table
+
+import difflib
+import filecmp
 import logging
 import numpy as np
 import os
@@ -12,6 +15,7 @@ class Validator:
   """
   This class runs the parsing module for theiavalidate
   """
+  NUMBER_OF_DIFFERENCES_COLUMN_HEADER = 
   def __init__(self, options):
     logging.basicConfig(encoding='utf-8', level=logging.ERROR, stream=sys.stderr)
     self.logger = logging.getLogger(__name__)
@@ -166,29 +170,95 @@ class Validator:
   """
   def perform_exact_match(self):
     self.logger.debug("Performing an exact match and removing the sample name column")
+
+    if self.file_columns:
+      # exclude file_columns for string comparison
+      table1 = self.table1.drop(list(self.file_columns), axis=1)
+      table2 = self.table2.drop(list(self.file_columns), axis=1)
+
+      # handle file comparisons separately from strings
+
+      # TODO: set index to samples column in main table earlier?
+      files_df1 = self.table1.set_index("samples") 
+      files_df2 = self.table2.set_index("samples")
+      files_df1 = files_df1[list(self.file_columns)]
+      files_df2 = files_df2[list(self.file_columns)]
+      file_number_of_differences = compare_files(files_df1, files_df2)
+    else:
+      table1 = self.table1
+      table2 = self.table2
+    
     # count the number of differences using exact string matches
     # temporarily make NaNs null since NaN != NaN for the pd.DataFrame.eq() function
     # also: remove the samplename row
-    number_of_differences = pd.DataFrame((~self.table1.fillna("NULL").astype(str).eq(self.table2.fillna("NULL").astype(str))).sum(), columns = ["Number of differences (exact match)"])
+    number_of_differences = pd.DataFrame((~table1.fillna("NULL").astype(str).eq(table2.fillna("NULL").astype(str))).sum(), columns = ["Number of differences (exact match)"])
+
     number_of_differences.drop("samples", axis=0, inplace=True)
+
     
     # add the number of differences to the summary output table
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
     
+
     # get a table of self-other differences
     # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
     self.logger.debug("Creating a table of self-other differences")
-    exact_differences_table = self.table1.drop("samples", axis=1).compare(self.table2.drop("samples", axis=1), keep_shape=True).set_index(self.table1["samples"])
+    exact_differences_table = table1.drop("samples", axis=1).compare(table2.drop("samples", axis=1), keep_shape=True).set_index(table1["samples"])
     # rename the self and other with the table names
     self.logger.debug("Renaming the self and other to be the table names")
     exact_differences_table.rename(columns={"self": self.table1_name, "other": self.table2_name}, level=-1, inplace=True)
     # replace matching values (NAs) with blanks
     self.logger.debug("Replacing all NA values with blanks")
     exact_differences_table.replace(np.nan, "", inplace=True)
+
     
     self.logger.debug("Writing the self-other differences table to a TSV file")
     exact_differences_table.to_csv(self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
+
+
+    def compare_files(df1, df2):
+      comparison_df = pd.DataFrame(index=df1.index, columns=df1.columns)
+
+      for row in df1.index:
+        for col in df1.columns:
+          uri1 = df1.loc[row, col]
+          uri2 = df2.loc[row, col]
+          file1 = os.path.join("table1_files", uri1.removeprefix("gs://"))
+          file2 = os.path.join("table2_files", uri2.removeprefix("gs://"))
+          if pd.isnull(file1) and pd.isnull(file2):
+            # count two nulls as matching
+            comparison_df.loc[row, col] = True
+          elif (not pd.isnull(file1) and not pd.isnull(file2)):
+            is_match = filecmp.cmp(file1, file2)
+            comparison_df.loc[row, col] = is_match
+            if not is_match:
+              output_filename = f"{row}_{col}_diff.txt"
+              create_diff(file1, file2, output_filename)
+          else:
+            # count as not matching if pair is missing
+            comparison_df.loc[row, col] = False
+        
+        number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
+        for col in number_of_differences.columns:
+          count = comparison_df[col].dropna().ne(True).sum()
+          number_of_differences.loc[col] = count
+
+        return number_of_differences
+
+    def create_diff(file1, file2, output_filename):
+      # create unified diff
+      with open(file1, "r") as f1, open(file2, "r") as f2:
+        diff = difflib.unified_diff(
+          f1.readlines(),
+          f2.readlines(),
+          fromfile=file1,
+          tofile=file2,
+          lineterm='',
+        )
+        diff = "".join(diff)
+        with open(output_filename, "w") as out:
+          out.write(diff)
 
   """
   This function calculates the percent difference between two values
@@ -356,7 +426,6 @@ class Validator:
     self.logger.info("Localizing files to compare...")
     self.table1[self.file_columns].apply(localize_files, directory=dir1)
     self.table2[self.file_columns].apply(localize_files, directory=dir2)
-
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
@@ -377,7 +446,7 @@ def localize_files(row, directory):
       # it would be much faster to copy them all at once, but any files with
       # the same name would be clobbered, so create local directories matching
       # gsutil path and loop to copy
-      remote_path = os.path.dirname(value.removeprefix('gs://'))
+      remote_path = os.path.dirname(value.removeprefix("gs://"))
       destination_path = os.path.join(directory, remote_path)
       os.makedirs(destination_path)
       subprocess.run(["gsutil", "-m", "cp", value, destination_path])
