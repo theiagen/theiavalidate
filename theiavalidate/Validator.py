@@ -236,7 +236,7 @@ class Validator:
           comparison_df.loc[row, col] = is_match
           if not is_match:
             output_filename = f"{row}_{col}_diff.txt"
-            self._create_diff(file1, file2, output_filename)
+            self.create_diff(file1, file2, output_filename)
         else:
           # count as not matching if pair is missing
           comparison_df.loc[row, col] = False
