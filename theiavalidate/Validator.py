@@ -15,7 +15,6 @@ class Validator:
   """
   This class runs the parsing module for theiavalidate
   """
-  NUMBER_OF_DIFFERENCES_COLUMN_HEADER = 
   def __init__(self, options):
     logging.basicConfig(encoding='utf-8', level=logging.ERROR, stream=sys.stderr)
     self.logger = logging.getLogger(__name__)
@@ -217,13 +216,14 @@ class Validator:
     exact_differences_table.to_csv(self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
 
 
-    def compare_files(df1, df2):
-      comparison_df = pd.DataFrame(index=df1.index, columns=df1.columns)
+    def compare_files(file_df1, file_df2):
+      comparison_df = pd.DataFrame(index=file_df1.index,
+                                   columns=file_df1.columns)
 
-      for row in df1.index:
-        for col in df1.columns:
-          uri1 = df1.loc[row, col]
-          uri2 = df2.loc[row, col]
+      for row in file_df1.index:
+        for col in file_df1.columns:
+          uri1 = file_df1.loc[row, col]
+          uri2 = file_df2.loc[row, col]
           file1 = os.path.join("table1_files", uri1.removeprefix("gs://"))
           file2 = os.path.join("table2_files", uri2.removeprefix("gs://"))
           if pd.isnull(file1) and pd.isnull(file2):

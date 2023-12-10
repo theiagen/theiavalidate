@@ -107,4 +107,8 @@ class TestDetermineFileColumns(unittest.TestCase):
       }
       self.run_determine_file_columns(data1, data2)
       self.assertEqual(self.validator.file_columns, {"col1"})
-      
+
+
+class TestCompareFiles(unittest.TestCase):
+  def setUp(self):
+    self.validator = Validator(MockOptions())
