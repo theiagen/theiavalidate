@@ -203,7 +203,7 @@ class Validator:
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
     if file_number_of_differences is not None:
-      self.summary_output = pd.concat([self.summary_output, file_number_of_differences], join="outer", axis="1")
+      self.summary_output = pd.concat([self.summary_output, file_number_of_differences], join="outer", axis=1)
 
     # get a table of self-other differences
     # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
