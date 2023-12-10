@@ -216,7 +216,7 @@ class Validator:
     exact_differences_table.to_csv(self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
 
 
-  def compare_files(file_df1, file_df2):
+  def compare_files(self, file_df1, file_df2):
     comparison_df = pd.DataFrame(index=file_df1.index,
                                   columns=file_df1.columns)
 
@@ -246,7 +246,7 @@ class Validator:
 
       return number_of_differences
 
-  def create_diff(file1, file2, output_filename):
+  def create_diff(self, file1, file2, output_filename):
     # create unified diff
     with open(file1, "r") as f1, open(file2, "r") as f2:
       diff = difflib.unified_diff(
