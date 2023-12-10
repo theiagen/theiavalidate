@@ -112,31 +112,71 @@ class TestDetermineFileColumns(unittest.TestCase):
 class TestCompareFiles(unittest.TestCase):
   def setUp(self):
     self.validator = Validator(MockOptions())
-    self.file_comparison_dir = "tests/file1_files"
-    self.file_comparison_dir = "tests/file2_files"
+    self.validator.table1_files_dir = "tests/table1_files"
+    self.validator.table2_files_dir = "tests/table2_files"
+    self.diff_dir = "/dev/null"
 
   def test_matching_files(self):
     df1 = pd.DataFrame({
-      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-2.txt"],
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-3.txt"],
       "col2": ["gs://match2-1.txt", "gs://match2-2.txt", "gs://match2-3.txt"]
     })
     df2 = pd.DataFrame({
-      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-2.txt"],
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-3.txt"],
       "col2": ["gs://match2-1.txt", "gs://match2-2.txt", "gs://match2-3.txt"]
     })
     observed = self.validator.compare_files(df1, df2)
     expected = pd.DataFrame({
       "Number of differences (exact match)": [0, 0]
     })
-    expected.index = ["col1, col2"]
+    expected.index = ["col1", "col2"]
     pd.testing.assert_frame_equal(observed, expected)
 
   def test_mismatching_files(self):
-    pass
+    df1 = pd.DataFrame({
+      "col1": ["gs://mismatch1-1.txt", "gs://mismatch1-2.txt", "gs://mismatch1-3.txt"],
+      "col2": ["gs://mismatch2-1.txt", "gs://mismatch2-2.txt", "gs://mismatch2-3.txt"]
+    })
+    df2 = pd.DataFrame({
+      "col1": ["gs://mismatch1-1.txt", "gs://mismatch1-2.txt", "gs://mismatch1-3.txt"],
+      "col2": ["gs://mismatch2-1.txt", "gs://mismatch2-2.txt", "gs://mismatch2-3.txt"]
+    })
+    observed = self.validator.compare_files(df1, df2)
+    expected = pd.DataFrame({
+      "Number of differences (exact match)": [3, 3]
+    })
+    expected.index = ["col1", "col2"]
+    pd.testing.assert_frame_equal(observed, expected)
 
   def test_mix_matching_files(self):
-    pass
+    df1 = pd.DataFrame({
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-3.txt"],
+      "col2": ["gs://mismatch2-3.txt", "gs://match2-2.txt", "gs://mismatch2-3.txt"]
+    })
+    df2 = pd.DataFrame({
+      "col1": ["gs://match1-1.txt", "gs://match1-2.txt", "gs://match1-3.txt"],
+      "col2": ["gs://mismatch2-3.txt", "gs://match2-2.txt", "gs://mismatch2-3.txt"]
+    })
+    observed = self.validator.compare_files(df1, df2)
+    expected = pd.DataFrame({
+      "Number of differences (exact match)": [0, 2]
+    })
+    expected.index = ["col1", "col2"]
+    pd.testing.assert_frame_equal(observed, expected) 
 
-  def test_null_file(self):
-    pass
+  def test_null_files(self):
+    df1 = pd.DataFrame({
+      "col1": [np.nan, "gs://match1-2.txt", "gs://match1-3.txt"],
+      "col2": [np.nan, "gs://match2-2.txt", "gs://mismatch2-3.txt"]
+    })
+    df2 = pd.DataFrame({
+      "col1": [np.nan, "gs://match1-2.txt", "gs://match1-3.txt"],
+      "col2": ["gs://match2-3.txt", np.nan, np.nan]
+    })
+    observed = self.validator.compare_files(df1, df2)
+    expected = pd.DataFrame({
+      "Number of differences (exact match)": [0, 3]
+    })
+    expected.index = ["col1", "col2"]
+    pd.testing.assert_frame_equal(observed, expected) 
 
