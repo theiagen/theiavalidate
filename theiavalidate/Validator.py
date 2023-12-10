@@ -227,13 +227,12 @@ class Validator:
       for row in file_df1.index:
         uri1 = file_df1.loc[row, col]
         uri2 = file_df2.loc[row, col]
-        file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
-        file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
-        print(f"files: {file1}, {file2}")
-        if pd.isnull(file1) and pd.isnull(file2):
+        if pd.isnull(uri1) and pd.isnull(uri2):
           # count two nulls as matching
           comparison_df.loc[row, col] = True
-        elif (not pd.isnull(file1) and not pd.isnull(file2)):
+        elif (not pd.isnull(uri1) and not pd.isnull(uri2)):
+          file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
+          file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
           is_match = filecmp.cmp(file1, file2)
           comparison_df.loc[row, col] = is_match
           if not is_match:
