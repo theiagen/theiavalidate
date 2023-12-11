@@ -53,6 +53,7 @@ class Validator:
     self.file_exact_matches = None
     self.file_exact_differences = None
     self.file_number_of_differences = None
+    self.file_validations = None
 
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
@@ -274,7 +275,8 @@ class Validator:
         
         self.file_exact_differences.loc[row, (col, self.table1_name)] = uri1
         self.file_exact_differences.loc[row, (col, self.table2_name)] = uri2
-
+    
+    self.file_exact_matches = self.file_exact_matches.astype(bool)
 
   def set_file_number_of_differences(self):
     self.file_number_of_differences = pd.DataFrame(columns=[self.NUM_DIFFERENCES_COL])
@@ -315,7 +317,11 @@ class Validator:
   def validate(self, column):
     if column.name in self.table1.columns:
       # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
-      if pd.api.types.is_string_dtype(column) == True: # if a string
+      if column.name in self.file_columns:
+        # handle file validation separately from strings, floats
+        validation_criterion, number_of_differences = self.validate_files(column)
+        return (validation_criterion, number_of_differences)
+      elif pd.api.types.is_string_dtype(column) == True: # if a string
         if column[0] == "EXACT": # count the number of exact match failures/differences
           self.logger.debug("Performing an exact match on column {} and counting the number of differences".format(column.name))
           exact_matches = ~self.table1[column.name].fillna("NULL").eq(self.table2[column.name].fillna("NULL"))
@@ -357,16 +363,38 @@ class Validator:
     else:
       self.logger.debug("Column {} was not found; indicating np.nan failures".format(column.name))
       return ("COLUMN " + column.name + " NOT FOUND", np.nan)
+
+  def validate_files(self, column):
+    validation_criterion = column.iloc[0]
+    if validation_criterion == "EXACT":
+      # we already know where the exact matches are from compare_files()
+      self.validation_table[(column.name, self.table1_name)] = (self.table1
+        .set_index("samples")[column.name]
+        .where(~self.file_exact_matches[column.name])
+        .reset_index()[column.name]
+      )
+      self.validation_table[(column.name, self.table2_name)] = (self.table2
+        .set_index("samples")[column.name]
+        .where(~self.file_exact_matches[column.name])
+        .reset_index()[column.name]
+      )
+      number_of_differences = self.file_number_of_differences.loc[column.name, self.NUM_DIFFERENCES_COL]
+    elif validation_criterion == "IGNORE":
+      number_of_differences = 0
+    elif validation_criterion == "SET":
+      pass
+    else:
+      raise Exception("Only EXACT, IGNORE, and SET validation criteria implemented for file columns")
+    return (validation_criterion, number_of_differences)
   
   """ 
   This function creates, formats, and runs the validation criteria checks
-  """                                                                
+  """
   def run_validation_checks(self):
       self.validation_table = pd.DataFrame()
       
       self.logger.debug("Performing the validation checks")
       self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(self.validation_criteria.apply(lambda x: self.validate(x), result_type="expand")).transpose()
-      print("validation criteria table:")
       # format the validation criteria differences table
       self.logger.debug("Formatting the validation criteria differences table")
       self.validation_table.set_index(self.table1["samples"], inplace=True)
