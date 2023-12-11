@@ -192,6 +192,7 @@ class Validator:
       files_df1 = files_df1[list(self.file_columns)]
       files_df2 = files_df2[list(self.file_columns)]
       self.compare_files(files_df1, files_df2)
+      self.set_file_number_of_differences()
     else:
       table1 = self.table1
       table2 = self.table2
@@ -208,7 +209,6 @@ class Validator:
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
 
-    self.set_file_number_of_differences()
     if self.file_number_of_differences is not None:
       self.summary_output = self.summary_output.combine_first(self.file_number_of_differences)
     self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output[self.NUM_DIFFERENCES_COL].astype(int)
@@ -322,7 +322,6 @@ class Validator:
 
           self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(exact_matches)
           self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(exact_matches)
-
           number_of_differences = exact_matches.sum()
           return ("EXACT", number_of_differences)
         elif column[0] == "IGNORE": # do not check; there are no failures (0)
@@ -367,7 +366,8 @@ class Validator:
       
       self.logger.debug("Performing the validation checks")
       self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(self.validation_criteria.apply(lambda x: self.validate(x), result_type="expand")).transpose()
-      
+      print("validation criteria table:")
+      print(self.validation_table)
       # format the validation criteria differences table
       self.logger.debug("Formatting the validation criteria differences table")
       self.validation_table.set_index(self.table1["samples"], inplace=True)
