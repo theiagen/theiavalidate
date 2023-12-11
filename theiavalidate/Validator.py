@@ -15,6 +15,7 @@ class Validator:
   """
   This class runs the parsing module for theiavalidate
   """
+  NUM_DIFFERENCES_COL = "Number of differences (exact match)"
   def __init__(self, options):
     logging.basicConfig(encoding='utf-8', level=logging.ERROR, stream=sys.stderr)
     self.logger = logging.getLogger(__name__)
@@ -180,7 +181,6 @@ class Validator:
       table2 = self.table2.drop(list(self.file_columns), axis=1)
 
       # handle file comparisons separately from strings
-
       # TODO: set index to samples column in main table earlier?
       files_df1 = self.table1.set_index("samples") 
       files_df2 = self.table2.set_index("samples")
@@ -194,7 +194,7 @@ class Validator:
     # count the number of differences using exact string matches
     # temporarily make NaNs null since NaN != NaN for the pd.DataFrame.eq() function
     # also: remove the samplename row
-    number_of_differences = pd.DataFrame((~table1.fillna("NULL").astype(str).eq(table2.fillna("NULL").astype(str))).sum(), columns = ["Number of differences (exact match)"])
+    number_of_differences = pd.DataFrame((~table1.fillna("NULL").astype(str).eq(table2.fillna("NULL").astype(str))).sum(), columns = [self.NUM_DIFFERENCES_COL])
 
     number_of_differences.drop("samples", axis=0, inplace=True)
 
@@ -203,7 +203,11 @@ class Validator:
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
     if file_number_of_differences is not None:
-      self.summary_output = pd.concat([self.summary_output, file_number_of_differences], join="outer", axis=1)
+      self.summary_output = self.summary_output.combine_first(file_number_of_differences)
+    self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output[self.NUM_DIFFERENCES_COL].astype(int)
+
+    # Ensure number of differences column is the last column
+    self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output.pop(self.NUM_DIFFERENCES_COL)
 
     # get a table of self-other differences
     # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
@@ -245,7 +249,7 @@ class Validator:
           # count as not matching if pair is missing
           comparison_df.loc[row, col] = False
 
-    number_of_differences = pd.DataFrame(columns=["Number of differences (exact match)"])
+    number_of_differences = pd.DataFrame(columns=[self.NUM_DIFFERENCES_COL])
     for col in comparison_df.columns:
       count = comparison_df[col].dropna().ne(True).sum()
       number_of_differences.loc[col] = count
