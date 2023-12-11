@@ -43,10 +43,16 @@ class Validator:
     self.validation_criteria = options.validation_criteria
     self.columns_to_compare = options.columns_to_compare
     self.columns_to_compare.append("samples")
+
     self.file_columns = set()  # columns that contain GCP URIs to files
     self.table1_files_dir = "table1_files"
     self.table2_files_dir = "table2_files"
     self.diff_dir = "file_diffs"
+
+    # DataFrames for holding file comparison results
+    self.file_exact_matches = None
+    self.file_exact_differences_table = None
+    self.file_number_of_differences = None
 
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
@@ -226,8 +232,8 @@ class Validator:
 
 
   def compare_files(self, file_df1, file_df2):
-    comparison_df = pd.DataFrame(index=file_df1.index,
-                                 columns=file_df1.columns)
+    self.file_exact_matches = pd.DataFrame(index=file_df1.index,
+                                           columns=file_df1.columns)
 
     for col in file_df1.columns:
       for row in file_df1.index:
@@ -235,26 +241,25 @@ class Validator:
         uri2 = file_df2.loc[row, col]
         if pd.isnull(uri1) and pd.isnull(uri2):
           # count two nulls as matching
-          comparison_df.loc[row, col] = True
+          self.file_exact_matches.loc[row, col] = True
         elif (not pd.isnull(uri1) and not pd.isnull(uri2)):
           file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
           file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
           is_match = filecmp.cmp(file1, file2)
-          comparison_df.loc[row, col] = is_match
+          self.file_exact_matches.loc[row, col] = is_match
           if not is_match:
             output_filename = f"{row}_{col}_diff.txt"
             output_path = os.path.join(self.diff_dir, output_filename)
             self.create_diff(file1, file2, output_path)
         else:
           # count as not matching if pair is missing
-          comparison_df.loc[row, col] = False
+          self.file_exact_matches.loc[row, col] = False
 
-    number_of_differences = pd.DataFrame(columns=[self.NUM_DIFFERENCES_COL])
-    for col in comparison_df.columns:
-      count = comparison_df[col].dropna().ne(True).sum()
-      number_of_differences.loc[col] = count
-
-    return number_of_differences
+  def set_file_number_of_differences(self):
+    self.file_number_of_differences = pd.DataFrame(columns=[self.NUM_DIFFERENCES_COL])
+    for col in self.file_exact_matches.columns:
+      count = self.file_exact_matches[col].dropna().ne(True).sum()
+      self.file_number_of_differences.loc[col] = count
 
   def create_diff(self, file1, file2, output_path):
     # create unified diff
