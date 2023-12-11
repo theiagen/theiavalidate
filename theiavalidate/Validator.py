@@ -367,12 +367,10 @@ class Validator:
       self.logger.debug("Performing the validation checks")
       self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(self.validation_criteria.apply(lambda x: self.validate(x), result_type="expand")).transpose()
       print("validation criteria table:")
-      print(self.validation_table)
       # format the validation criteria differences table
       self.logger.debug("Formatting the validation criteria differences table")
       self.validation_table.set_index(self.table1["samples"], inplace=True)
       self.validation_table.rename_axis(None, axis="index", inplace=True)
-      self.validation_table.transpose()
       
       self.validation_table.columns = pd.MultiIndex.from_tuples(self.validation_table.columns, names=["Column", "Table"])
 
