@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import unittest
 
+
 class MockOptions:
   """
   Mock the "options" object that is created in theiavalidate.py. In
@@ -26,7 +27,6 @@ class MockOptions:
     self.na_values = DEFAULT_NA_VALUES
     self.verbose = False
     self.debug = False
-
 
 
 class TestDetermineFileColumns(unittest.TestCase):
