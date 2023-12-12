@@ -1,3 +1,6 @@
+# To run these unit tests, run "python3 -m unittest" from the root of the
+# project directory.
+
 from theiavalidate.Validator import Validator
 from theiavalidate.theiavalidate import DEFAULT_NA_VALUES
 
@@ -12,8 +15,7 @@ class MockOptions:
   the argparse package, but here we will simulate this object with a
   different class to more easily create Validator objects.
   """
-  def __init__(self, options_dict=None):
-    # defaults
+  def __init__(self):
     self.table1 = None
     self.table2 = None
     self.version = None
@@ -25,10 +27,6 @@ class MockOptions:
     self.verbose = False
     self.debug = False
 
-    # overwrite defaults with options_dict
-    if options_dict is not None:
-      for key, value in options_dict.items():
-        setattr(self, key, value)
 
 
 class TestDetermineFileColumns(unittest.TestCase):
@@ -435,5 +433,5 @@ class TestValidateFiles(unittest.TestCase):
     })
     expected.set_index(self.validator.table1["samples"], inplace=True)
     expected.rename_axis(None, axis="index", inplace=True)
-    expected.columns = pd.MultiIndex.from_tuples(expected.columns, names=["Column", "Table"]
+    expected.columns = pd.MultiIndex.from_tuples(expected.columns, names=["Column", "Table"])
     pd.testing.assert_frame_equal(self.validator.validation_table, expected)
