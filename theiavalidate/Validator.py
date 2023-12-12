@@ -382,10 +382,40 @@ class Validator:
     elif validation_criterion == "IGNORE":
       number_of_differences = 0
     elif validation_criterion == "SET":
-      pass
+      # for SET, sort lines in files then compare
+      concat_columns = pd.concat([self.table1[column.name], self.table2[column.name]], axis=1)
+      concat_columns = concat_columns.applymap(
+        lambda x: x.removeprefix("gs://") if pd.notnull(x) else x
+      )
+      sorted_file_matches = concat_columns.apply(self.compare_sorted_files, axis=1)
+      self.validation_table[(column.name, self.table1_name)] = (self.table1[column.name]
+        .where(~sorted_file_matches)
+      )
+      self.validation_table[(column.name, self.table2_name)] = (self.table2[column.name]
+        .where(~sorted_file_matches)
+      )
+      number_of_differences = len(sorted_file_matches) - sorted_file_matches.sum()
     else:
       raise Exception("Only EXACT, IGNORE, and SET validation criteria implemented for file columns")
     return (validation_criterion, number_of_differences)
+  
+  def compare_sorted_files(self, row):
+    file1 = row.iloc[0]
+    file2 = row.iloc[1]
+    if pd.isnull(file1) and pd.isnull(file2):
+      # count two nulls as matching
+      return True
+    if pd.notnull(file1) and pd.notnull(file2):
+      file1 = os.path.join(self.table1_files_dir, file1)
+      file2 = os.path.join(self.table2_files_dir, file2)
+      with open(file1, "r") as f1, open(file2, "r") as f2:
+          lines1 = f1.readlines()
+          lines2 = f2.readlines()
+      lines1.sort()
+      lines2.sort()
+      return lines1 == lines2
+    # count null + not-null as mismatching
+    return False
   
   """ 
   This function creates, formats, and runs the validation criteria checks
