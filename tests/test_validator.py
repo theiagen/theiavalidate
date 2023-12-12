@@ -302,8 +302,8 @@ class TestCompareFiles(unittest.TestCase):
     pd.testing.assert_frame_equal(self.validator.file_exact_differences, expected)
 
   def test_null_files_exact_differences(self):
-    df1, df2 = self.create_mix_matching_files_tables()
-    self.validator.compare_files(df2, df2)
+    df1, df2 = self.create_null_files_tables()
+    self.validator.compare_files(df1, df2)
     expected = pd.DataFrame({
       ("col1", "table1"): [np.nan, np.nan, np.nan],
       ("col1", "table2"): [np.nan, np.nan, np.nan],
@@ -313,3 +313,108 @@ class TestCompareFiles(unittest.TestCase):
     expected.index = self.SAMPLES_INDEX
     pd.testing.assert_frame_equal(self.validator.file_exact_differences, expected)
 
+class TestValidateFiles(unittest.TestCase):
+  SAMPLES_INDEX = ["sample1", "sample2", "sample3", "sample4", "sample5"]
+  COLUMNS_INDEX = ["exact_col", "set_col", "ignore_col", "float_col"]
+  TABLE1_FILE_URIS = ["gs://match1-1.txt", "gs://mismatch1-2.txt", "gs://match1-3", "gs://sortmatch1-1.txt", np.nan]
+  TABLE2_FILE_URIS = ["gs://match1-1.txt", "gs://mismatch1-2.txt", np.nan, "gs://sortmatch1-1.txt", np.nan]
+  EXACT_MATCHES_MASK = [True, False, False, False, True]
+
+  def setUp(self):
+    self.validator = Validator(MockOptions())
+    self.validator.validation_criteria = pd.DataFrame({
+      "exact_col": "EXACT",
+      "set_col": "SET",
+      "ignore_col": "IGNORE",
+      "float_col": 0.1,
+    }, index=["column", "criteria"]
+    )
+
+    # This numeric convertion is done in Validator init method
+    self.validator.validation_criteria = (self.validator.validation_criteria
+      .apply(pd.to_numeric, errors="ignore").convert_dtypes()
+    )
+
+    self.validator.table1 = pd.DataFrame({
+      "samples": self.SAMPLES_INDEX,
+      "exact_col": self.TABLE1_FILE_URIS,
+      "set_col": self.TABLE1_FILE_URIS,
+      "ignore_col": self.TABLE1_FILE_URIS,
+      "float_col": self.TABLE1_FILE_URIS  # uh-oh
+    })
+    
+    self.validator.table2 = pd.DataFrame({
+      "samples": self.SAMPLES_INDEX,
+      "exact_col": self.TABLE2_FILE_URIS,
+      "set_col": self.TABLE2_FILE_URIS,
+      "ignore_col": self.TABLE2_FILE_URIS,
+      "float_col": self.TABLE2_FILE_URIS  # uh-oh
+    })
+
+    self.validator.file_exact_matches = pd.DataFrame({
+      "exact_col": self.EXACT_MATCHES_MASK,
+      "set_col": self.EXACT_MATCHES_MASK,
+      "ignore_col": self.EXACT_MATCHES_MASK,
+      "float_col": self.EXACT_MATCHES_MASK
+    })
+    self.validator.file_exact_matches.index = self.SAMPLES_INDEX
+
+    self.validator.file_number_of_differences = pd.DataFrame({
+      self.validator.NUM_DIFFERENCES_COL: [3, 3, 3, 3]
+    })
+    self.validator.file_number_of_differences.index = self.COLUMNS_INDEX
+
+    self.validator.table1_name = "table1"
+    self.validator.table2_name = "table2"
+    self.validator.table1_files_dir = "tests/table1_files"
+    self.validator.table2_files_dir = "tests/table2_files"
+
+    self.validator.validation_table = pd.DataFrame()
+
+  def test_validate_exact(self):
+    column = self.validator.validation_criteria["exact_col"]
+    observed = self.validator.validate_files(column)
+    expected = ("EXACT", 3)
+    self.assertEqual(observed, expected)
+
+  def test_validate_ignore(self):
+    column = self.validator.validation_criteria["ignore_col"]
+    observed = self.validator.validate_files(column)
+    expected = ("IGNORE", 0)
+    self.assertEqual(observed, expected)
+
+  def test_validate_set(self):
+    column = self.validator.validation_criteria["set_col"]
+    observed = self.validator.validate_files(column)
+    expected = ("SET", 2)  # sorted file should not count as different
+    self.assertEqual(observed, expected)
+
+  def test_validate_float(self):
+    # have not implemented % difference for files
+    column = self.validator.validation_criteria["set_col"]
+    self.assertRaises(Exception, self.validator.validate_files(column))
+
+  def test_validation_table(self):
+    for column in ["exact_col", "set_col", "ignore_col"]:
+      column = self.validator.validation_criteria[column]
+      self.validator.validate_files(column)
+    
+    # these steps are done in run_validation_checks
+    self.validator.validation_table.set_index(self.validator.table1["samples"], inplace=True)
+    self.validator.validation_table.rename_axis(None, axis="index", inplace=True)
+    self.validator.validation_table.columns = pd.MultiIndex.from_tuples(
+      self.validator.validation_table.columns, names=["Column", "Table"]
+    )
+
+    # exact_col should count sortmatch file as a mismatch, while set_col should
+    # count it as a match. No column should be generated for ignore_col
+    expected = pd.DataFrame({
+      ("exact_col", "table1"): [np.nan, "gs://mismatch1-2.txt", "gs://match1-3", "gs://sortmatch1-1.txt", np.nan],
+      ("exact_col", "table2"): [np.nan, "gs://mismatch1-2.txt", np.nan, "gs://sortmatch1-1.txt", np.nan],
+      ("set_col", "table1"): [np.nan, "gs://mismatch1-2.txt", "gs://match1-3", np.nan, np.nan],
+      ("set_col", "table2"): [np.nan, "gs://mismatch1-2.txt", np.nan, np.nan, np.nan],
+    })
+    expected.set_index(self.validator.table1["samples"], inplace=True)
+    expected.rename_axis(None, axis="index", inplace=True)
+    expected.columns = pd.MultiIndex.from_tuples(expected.columns, names=["Column", "Table"]
+    pd.testing.assert_frame_equal(self.validator.validation_table, expected)
