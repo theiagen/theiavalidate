@@ -1,0 +1,5 @@
+--- tests/table1_files/mismatch1-3.txt+++ tests/table2_files/mismatch1-3.txt@@ -1,4 +1,3 @@+spam
+ 
+-spam
+ eggs
+-
