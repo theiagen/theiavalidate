@@ -151,12 +151,11 @@ class Validator:
     self.summary_output = pd.concat([table1_populated_rows, table2_populated_rows], join="outer", axis=1)
   
 
-  """
-  This function determines columns with GCP URIs for file comparisons so that
-  they are excluded from regular comparisons and instead use filecmp to compare
-  the downloaded files.
-  """
   def determine_file_columns(self):
+    """
+    Determine the columns with GCP URIs so that they are excluded from regular
+    comparisons and instead file comparisons are performed.
+    """
     for df in [self.table1, self.table2]:
       # select columns with at least one GCP URI among nulls
       file_columns = df.columns[(df.apply(lambda x: x.astype(str).str.startswith("gs://")
@@ -238,6 +237,9 @@ class Validator:
 
 
   def compare_files(self, file_df1, file_df2):
+    """
+    Determine which pairs of files referenced in the DataFrames are identical
+    """
     self.file_exact_matches = pd.DataFrame(index=file_df1.index,
                                            columns=file_df1.columns)
     
@@ -275,7 +277,7 @@ class Validator:
         
         self.file_exact_differences.loc[row, (col, self.table1_name)] = uri1
         self.file_exact_differences.loc[row, (col, self.table2_name)] = uri2
-    
+
     self.file_exact_matches = self.file_exact_matches.astype(bool)
 
   def set_file_number_of_differences(self):
@@ -365,6 +367,11 @@ class Validator:
       return ("COLUMN " + column.name + " NOT FOUND", np.nan)
 
   def validate_files(self, column):
+    """
+    Perform validation of matching file contents based on which of EXACT,
+    IGNORE, or SET is assigned as the column's validation criterion. For SET,
+    sort lines in file before comparing.
+    """
     validation_criterion = column.iloc[0]
     if validation_criterion == "EXACT":
       # we already know where the exact matches are from compare_files()
@@ -400,6 +407,9 @@ class Validator:
     return (validation_criterion, number_of_differences)
   
   def compare_sorted_files(self, row):
+    """
+    Compare two files sorted alphabetically by line for a pair of file URIs.
+    """
     file1 = row.iloc[0]
     file2 = row.iloc[1]
     if pd.isnull(file1) and pd.isnull(file2):
@@ -534,6 +544,9 @@ class Validator:
     self.logger.info("Done!")
 
 def localize_files(row, directory):
+  """
+  Download files to compare from GCP.
+  """
   for value in row:
     if isinstance(value, str) and value.startswith("gs://"):
       # copy files to to compare_files/ directory
