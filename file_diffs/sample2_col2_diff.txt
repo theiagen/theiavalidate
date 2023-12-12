@@ -1,3 +1,0 @@
---- tests/table1_files/mismatch2-2.txt+++ tests/table2_files/mismatch2-2.txt@@ -1,2 +1,2 @@-5 6 6
-+4 5 6 
- 

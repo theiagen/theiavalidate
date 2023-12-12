@@ -1,3 +1,0 @@
---- tests/table1_files/mismatch2-3.txt+++ tests/table2_files/mismatch2-3.txt@@ -1,2 +1 @@-hello, world
--
-+hello, world!

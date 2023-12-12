@@ -161,6 +161,8 @@ cython_debug/
 
 # IDE
 .vscode/
+.devcontainer
 
 # testing files
 sandbox/
+file_diffs/
