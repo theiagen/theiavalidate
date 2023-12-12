@@ -32,96 +32,105 @@ class MockOptions:
 
 
 class TestDetermineFileColumns(unittest.TestCase):
-    def setUp(self):
-      self.validator = Validator(MockOptions())
+  """
+  Test detecting which columns in the tables correspond to files. If there is at
+  least one URI and no other values except np.nan in both tables, we should
+  treat the column as a "file_column".
+  """
+  def setUp(self):
+    self.validator = Validator(MockOptions())
 
-    def run_determine_file_columns(self, data1, data2):
-      self.validator.table1 = pd.DataFrame(data1)
-      self.validator.table2 = pd.DataFrame(data2)
-      self.validator.determine_file_columns()
+  def run_determine_file_columns(self, data1, data2):
+    self.validator.table1 = pd.DataFrame(data1)
+    self.validator.table2 = pd.DataFrame(data2)
+    self.validator.determine_file_columns()
 
-    def test_no_file_columns(self):
-      data = {
-        "col1": [1, 2, 3],
-        "col2": ["foo", "bar", "baz"]
-      }
-      self.run_determine_file_columns(data, data)
-      self.assertEqual(len(self.validator.file_columns), 0)
+  def test_no_file_columns(self):
+    data = {
+      "col1": [1, 2, 3],
+      "col2": ["foo", "bar", "baz"]
+    }
+    self.run_determine_file_columns(data, data)
+    self.assertEqual(len(self.validator.file_columns), 0)
 
-    def test_some_file_columns(self):
-      data1 = {
-        "col1": [1, 2, 3],
-        "col2": ["gs://foo", "gs://bar", "gs://baz"]
-      }
-      data2 = {
-        "col1": [1, 2, 3],
-        "col2": ["gs://eggs", "gs://spam", "gs://monty"]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col2"})
+  def test_some_file_columns(self):
+    data1 = {
+      "col1": [1, 2, 3],
+      "col2": ["gs://foo", "gs://bar", "gs://baz"]
+    }
+    data2 = {
+      "col1": [1, 2, 3],
+      "col2": ["gs://eggs", "gs://spam", "gs://monty"]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col2"})
 
-    def test_missing_uri(self):
-      data1 = {
-        "col1": [1, 2, 3],
-        "col2": ["gs://foo", np.nan, "gs://baz"]
-      }
-      data2 = {
-        "col1": [1, 2, 3],
-        "col2": ["gs://eggs", "gs://spam", "gs://monty"]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col2"})
+  def test_missing_uri(self):
+    data1 = {
+      "col1": [1, 2, 3],
+      "col2": ["gs://foo", np.nan, "gs://baz"]
+    }
+    data2 = {
+      "col1": [1, 2, 3],
+      "col2": ["gs://eggs", "gs://spam", "gs://monty"]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col2"})
 
-    def test_both_columns_null(self):
-      data1 = {
-        "col1": ["gs://foo", "gs://bar", "gs://baz"],
-        "col2": [np.nan, np.nan, np.nan]
-      }
-      data2 = {
-        "col1": ["gs://eggs", "gs://spam", "gs://monty"],
-        "col2": [np.nan, np.nan, np.nan]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col1"})
+  def test_both_columns_null(self):
+    data1 = {
+      "col1": ["gs://foo", "gs://bar", "gs://baz"],
+      "col2": [np.nan, np.nan, np.nan]
+    }
+    data2 = {
+      "col1": ["gs://eggs", "gs://spam", "gs://monty"],
+      "col2": [np.nan, np.nan, np.nan]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col1"})
 
-    def test_one_column_null(self):
-      data1 = {
-        "col1": ["gs://foo", "gs://bar", "gs://baz"],
-        "col2": ["gs://x", "gs://y", "gs://z"]
-      }
-      data2 = {
-        "col1": ["gs://eggs", "gs://spam", "gs://monty"],
-        "col2": [np.nan, np.nan, np.nan]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col1", "col2"})
+  def test_one_column_null(self):
+    data1 = {
+      "col1": ["gs://foo", "gs://bar", "gs://baz"],
+      "col2": ["gs://x", "gs://y", "gs://z"]
+    }
+    data2 = {
+      "col1": ["gs://eggs", "gs://spam", "gs://monty"],
+      "col2": [np.nan, np.nan, np.nan]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col1", "col2"})
 
-    def test_mixed_nulls(self):
-      data1 = {
-        "col1": ["gs://foo", "gs://foo", np.nan],
-        "col2": ["gs://x", "gs://y", np.nan]
-      }
-      data2 = {
-        "col1": ["gs://eggs", np.nan, np.nan],
-        "col2": [np.nan, "gs://b", np.nan]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col1", "col2"})
+  def test_mixed_nulls(self):
+    data1 = {
+      "col1": ["gs://foo", "gs://foo", np.nan],
+      "col2": ["gs://x", "gs://y", np.nan]
+    }
+    data2 = {
+      "col1": ["gs://eggs", np.nan, np.nan],
+      "col2": [np.nan, "gs://b", np.nan]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col1", "col2"})
 
-    def test_one_column_not_null(self):
-      data1 = {
-        "col1": ["gs://foo", "gs://bar", "gs://baz"],
-        "col2": ["gs://x", "gs://y", "gs://z"]
-      }
-      data2 = {
-        "col1": ["gs://eggs", "gs://spam", "gs://monty"],
-        "col2": [1, 2, 3]
-      }
-      self.run_determine_file_columns(data1, data2)
-      self.assertEqual(self.validator.file_columns, {"col1"})
+  def test_one_column_not_null(self):
+    data1 = {
+      "col1": ["gs://foo", "gs://bar", "gs://baz"],
+      "col2": ["gs://x", "gs://y", "gs://z"]
+    }
+    data2 = {
+      "col1": ["gs://eggs", "gs://spam", "gs://monty"],
+      "col2": [1, 2, 3]
+    }
+    self.run_determine_file_columns(data1, data2)
+    self.assertEqual(self.validator.file_columns, {"col1"})
 
 
 class TestCompareFiles(unittest.TestCase):
+  """
+  Test comparing files (exact match). Identical files or two np.nans
+  should count as an exact match, anything else should count as a mismatch.
+  """
   SAMPLES_INDEX = ["sample1", "sample2", "sample3"]
   COLUMNS_INDEX = ["col1", "col2"]
 
@@ -131,7 +140,7 @@ class TestCompareFiles(unittest.TestCase):
     self.validator.table2_name = "table2"
     self.validator.table1_files_dir = "tests/table1_files"
     self.validator.table2_files_dir = "tests/table2_files"
-    self.diff_dir = "/dev/null"
+    self.diff_dir = "/dev/null"  # discard diff files
 
   def create_matching_files_tables(self):
     df1 = pd.DataFrame({
@@ -314,6 +323,12 @@ class TestCompareFiles(unittest.TestCase):
     pd.testing.assert_frame_equal(self.validator.file_exact_differences, expected)
 
 class TestValidateFiles(unittest.TestCase):
+  """
+  Test comparing files using the validation criteria. EXACT follows the same
+  logic as compare_files(), SET should treat files as matching if after
+  sorting they are identical, IGNORE should "skip" the files. Other criteria
+  should result in an Exception.
+  """
   SAMPLES_INDEX = ["sample1", "sample2", "sample3", "sample4", "sample5"]
   COLUMNS_INDEX = ["exact_col", "set_col", "ignore_col", "float_col"]
   TABLE1_FILE_URIS = ["gs://match1-1.txt", "gs://mismatch1-2.txt", "gs://match1-3", "gs://sortmatch1-1.txt", np.nan]
@@ -335,6 +350,8 @@ class TestValidateFiles(unittest.TestCase):
       .apply(pd.to_numeric, errors="ignore").convert_dtypes()
     )
 
+    # assign the same URIs to each column, will test that the validation
+    # results vary depending on the the validation criterion
     self.validator.table1 = pd.DataFrame({
       "samples": self.SAMPLES_INDEX,
       "exact_col": self.TABLE1_FILE_URIS,
@@ -351,6 +368,7 @@ class TestValidateFiles(unittest.TestCase):
       "float_col": self.TABLE2_FILE_URIS  # uh-oh
     })
 
+    # the exact matches will be identical regardless of validation criteria
     self.validator.file_exact_matches = pd.DataFrame({
       "exact_col": self.EXACT_MATCHES_MASK,
       "set_col": self.EXACT_MATCHES_MASK,
@@ -407,7 +425,8 @@ class TestValidateFiles(unittest.TestCase):
     )
 
     # exact_col should count sortmatch file as a mismatch, while set_col should
-    # count it as a match. No column should be generated for ignore_col
+    # count it as a match.
+    # no column should be generated for ignore_col.
     expected = pd.DataFrame({
       ("exact_col", "table1"): [np.nan, "gs://mismatch1-2.txt", "gs://match1-3", "gs://sortmatch1-1.txt", np.nan],
       ("exact_col", "table2"): [np.nan, "gs://mismatch1-2.txt", np.nan, "gs://sortmatch1-1.txt", np.nan],
