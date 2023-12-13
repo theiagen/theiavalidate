@@ -549,8 +549,7 @@ def localize_files(row, directory):
   """
   for value in row:
     if isinstance(value, str) and value.startswith("gs://"):
-      # copy files to to compare_files/ directory
-      # it would be much faster to copy them all at once, but any files with
+      # it would be much faster to copy files all at once, but any files with
       # the same name would be clobbered, so create local directories matching
       # gsutil path and loop to copy
       remote_path = os.path.dirname(value.removeprefix("gs://"))
