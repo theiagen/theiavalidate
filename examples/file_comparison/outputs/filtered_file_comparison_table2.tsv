@@ -1,0 +1,6 @@
+samples	amrfinderplus_amr_core_genes	assembly_length	extra_column	file_column	gambit_predicted_taxon	sort_file_column
+sample01	aph(3'')-Ib,aph(6)-Id,tet(A)	4783610	extra_value	gs://path/to/table2_files/match1-1.txt	Salmonella enterica	gs://path/to/table2_files/match1-1.txt
+sample02	glpT_E448K,gyrA_D87G,gyrA_S83L,parC_S80I,blaCTX-M-27,sat2,dfrA1	5274928		gs://path/to/table2_files/mismatch1-1.txt	Shigella sonnei	gs://path/to/table2_files/mismatch1-1.txt
+sample03	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2	5287603		gs://path/to/table2_files/mismatch2-1.txt	Shigella sonnei	gs://path/to/table2_files/sortmatch1-1.txt
+sample04	parC_S87L,gyrA_T83I,sul1,aadA7	6674503	extra_value		Pseudomonas aeruginosa	
+sample05	parC_S80Y,tet(38),fosB,gyrA_S84L,mecA,mecR1,murA_G257D	2771914			Staphylococcus aureus	
