@@ -260,7 +260,7 @@ class Validator:
         elif (not pd.isnull(uri1) and not pd.isnull(uri2)):
           file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
           file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
-          is_match = filecmp.cmp(file1, file2)
+          is_match = filecmp.cmp(file1, file2, shallow=False)
           self.file_exact_matches.loc[row, col] = is_match
           if is_match:
             # don't add URIs to exact differences table if files match
