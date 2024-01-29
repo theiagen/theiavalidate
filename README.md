@@ -7,7 +7,7 @@ Note: this repository is undergoing active development. Check back for updates.
 We recommend using our Docker image to run this tool.
 
 ```bash
-docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:0.0.1
+docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:0.1.0
 ```
 
 ## Usage
