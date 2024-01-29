@@ -1,0 +1,7 @@
+column	criteria
+assembly_length	0.01
+gambit_predicted_taxon	EXACT
+amrfinderplus_amr_core_genes	SET
+extra_column	IGNORE
+file_column	EXACT
+sort_file_column	SET

@@ -1,16 +1,21 @@
 from datetime import date
 from pretty_html_table import build_table
+
+import difflib
+import filecmp
 import logging
 import numpy as np
 import os
 import pandas as pd
 import pdfkit as pdf
+import subprocess
 import sys
 
 class Validator:
   """
   This class runs the parsing module for theiavalidate
   """
+  NUM_DIFFERENCES_COL = "Number of differences (exact match)"
   def __init__(self, options):
     logging.basicConfig(encoding='utf-8', level=logging.ERROR, stream=sys.stderr)
     self.logger = logging.getLogger(__name__)
@@ -38,7 +43,18 @@ class Validator:
     self.validation_criteria = options.validation_criteria
     self.columns_to_compare = options.columns_to_compare
     self.columns_to_compare.append("samples")
-    
+
+    self.file_columns = set()  # columns that contain GCP URIs to files
+    self.table1_files_dir = "table1_files"
+    self.table2_files_dir = "table2_files"
+    self.diff_dir = "file_diffs"
+
+    # DataFrames for holding file comparison results
+    self.file_exact_matches = None
+    self.file_exact_differences = None
+    self.file_number_of_differences = None
+    self.file_validations = None
+
     self.output_prefix = options.output_prefix
     self.na_values = options.na_values
       
@@ -134,34 +150,157 @@ class Validator:
     self.logger.debug("Creating the summary table with the number of populated cells")
     self.summary_output = pd.concat([table1_populated_rows, table2_populated_rows], join="outer", axis=1)
   
+
+  def determine_file_columns(self):
+    """
+    Determine the columns with GCP URIs so that they are excluded from regular
+    comparisons and instead file comparisons are performed.
+    """
+    for df in [self.table1, self.table2]:
+      # select columns with at least one GCP URI among nulls
+      file_columns = df.columns[(df.apply(lambda x: x.astype(str).str.startswith("gs://")
+                                          | x.isnull()).all())
+                                & (~df.isnull().all())]
+
+      file_columns = file_columns.tolist()
+      self.file_columns.update(file_columns)
+
+    # Ensure file_columns set only has GCP URIs and nulls
+    for df in [self.table1, self.table2]:
+      remove_columns = df.columns[~(df.apply(lambda x: x.astype(str).str.startswith('gs://')
+                                             | x.isnull()).all())]
+
+      # Convert the Index object to a set
+      remove_columns = set(remove_columns.tolist())
+      self.file_columns = self.file_columns - remove_columns
+
   """
   This function performs an exact match and creates and Excel file that contains the exact match differences
   """
   def perform_exact_match(self):
     self.logger.debug("Performing an exact match and removing the sample name column")
+
+    if self.file_columns:
+      # exclude file_columns for string comparison
+      table1 = self.table1.drop(list(self.file_columns), axis=1)
+      table2 = self.table2.drop(list(self.file_columns), axis=1)
+
+      # handle file comparisons separately from strings
+      # TODO: set index to samples column in main table earlier?
+      files_df1 = self.table1.set_index("samples") 
+      files_df2 = self.table2.set_index("samples")
+      files_df1 = files_df1[list(self.file_columns)]
+      files_df2 = files_df2[list(self.file_columns)]
+      self.compare_files(files_df1, files_df2)
+      self.set_file_number_of_differences()
+    else:
+      table1 = self.table1
+      table2 = self.table2
+    
     # count the number of differences using exact string matches
     # temporarily make NaNs null since NaN != NaN for the pd.DataFrame.eq() function
     # also: remove the samplename row
-    number_of_differences = pd.DataFrame((~self.table1.fillna("NULL").astype(str).eq(self.table2.fillna("NULL").astype(str))).sum(), columns = ["Number of differences (exact match)"])
+    number_of_differences = pd.DataFrame((~table1.fillna("NULL").astype(str).eq(table2.fillna("NULL").astype(str))).sum(), columns = [self.NUM_DIFFERENCES_COL])
+
     number_of_differences.drop("samples", axis=0, inplace=True)
+
     
     # add the number of differences to the summary output table
     self.logger.debug("Adding the number of exact match differences to the summary table")
     self.summary_output = pd.concat([self.summary_output, number_of_differences], join="outer", axis=1)
-    
+
+    if self.file_number_of_differences is not None:
+      self.summary_output = self.summary_output.combine_first(self.file_number_of_differences)
+    self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output[self.NUM_DIFFERENCES_COL].astype(int)
+
+    # ensure number of differences column is the last column
+    self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output.pop(self.NUM_DIFFERENCES_COL)
+
     # get a table of self-other differences
     # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
     self.logger.debug("Creating a table of self-other differences")
-    exact_differences_table = self.table1.drop("samples", axis=1).compare(self.table2.drop("samples", axis=1), keep_shape=True).set_index(self.table1["samples"])
+    exact_differences_table = table1.drop("samples", axis=1).compare(table2.drop("samples", axis=1), keep_shape=True).set_index(table1["samples"])
     # rename the self and other with the table names
     self.logger.debug("Renaming the self and other to be the table names")
     exact_differences_table.rename(columns={"self": self.table1_name, "other": self.table2_name}, level=-1, inplace=True)
+
+    # add file exact differences
+    exact_differences_table = pd.concat([exact_differences_table, self.file_exact_differences], axis=1)
+
     # replace matching values (NAs) with blanks
     self.logger.debug("Replacing all NA values with blanks")
     exact_differences_table.replace(np.nan, "", inplace=True)
+
     
     self.logger.debug("Writing the self-other differences table to a TSV file")
     exact_differences_table.to_csv(self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
+
+
+  def compare_files(self, file_df1, file_df2):
+    """
+    Determine which pairs of files referenced in the DataFrames are identical
+    """
+    self.file_exact_matches = pd.DataFrame(index=file_df1.index,
+                                           columns=file_df1.columns)
+    
+    # create similar table to one generated by df1.compare(df2)
+    # for adding to the exact differences TSV
+    self.file_exact_differences = pd.DataFrame(
+      index=file_df1.index,
+      columns=pd.MultiIndex.from_product([file_df1.columns, [self.table1_name, self.table2_name]])
+    )
+
+    for col in file_df1.columns:
+      for row in file_df1.index:
+        uri1 = file_df1.loc[row, col]
+        uri2 = file_df2.loc[row, col]
+        if pd.isnull(uri1) and pd.isnull(uri2):
+          # count two nulls as matching
+          self.file_exact_matches.loc[row, col] = True
+        elif (not pd.isnull(uri1) and not pd.isnull(uri2)):
+          file1 = os.path.join(self.table1_files_dir, uri1.removeprefix("gs://"))
+          file2 = os.path.join(self.table2_files_dir, uri2.removeprefix("gs://"))
+          is_match = filecmp.cmp(file1, file2, shallow=False)
+          self.file_exact_matches.loc[row, col] = is_match
+          if is_match:
+            # don't add URIs to exact differences table if files match
+            self.file_exact_differences.loc[row, (col, self.table1_name)] = np.nan
+            self.file_exact_differences.loc[row, (col, self.table2_name)] = np.nan
+            continue
+          else:
+            output_filename = f"{row}_{col}_diff.txt"
+            output_path = os.path.join(self.diff_dir, output_filename)
+            self.create_diff(file1, file2, output_path)
+        else:
+          # count as not matching if pair is missing
+          self.file_exact_matches.loc[row, col] = False
+        
+        self.file_exact_differences.loc[row, (col, self.table1_name)] = uri1
+        self.file_exact_differences.loc[row, (col, self.table2_name)] = uri2
+
+    self.file_exact_matches = self.file_exact_matches.astype(bool)
+
+  def set_file_number_of_differences(self):
+    self.file_number_of_differences = pd.DataFrame(columns=[self.NUM_DIFFERENCES_COL])
+    for col in self.file_exact_matches.columns:
+      count = self.file_exact_matches[col].dropna().ne(True).sum()
+      self.file_number_of_differences.loc[col] = count
+
+  def create_diff(self, file1, file2, output_path):
+    # create unified diff
+    with open(file1, "r") as f1, open(file2, "r") as f2:
+      diff = difflib.unified_diff(
+        f1.readlines(),
+        f2.readlines(),
+        fromfile=file1,
+        tofile=file2,
+        lineterm='',
+      )
+      diff = "".join(diff)
+
+      os.makedirs(os.path.dirname(output_path), exist_ok=True)
+      with open(output_path, "w") as out:
+        out.write(diff)
 
   """
   This function calculates the percent difference between two values
@@ -180,14 +319,17 @@ class Validator:
   def validate(self, column):
     if column.name in self.table1.columns:
       # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
-      if pd.api.types.is_string_dtype(column) == True: # if a string
+      if column.name in self.file_columns:
+        # handle file validation separately from strings, floats
+        validation_criterion, number_of_differences = self.validate_files(column)
+        return (validation_criterion, number_of_differences)
+      elif pd.api.types.is_string_dtype(column) == True: # if a string
         if column[0] == "EXACT": # count the number of exact match failures/differences
           self.logger.debug("Performing an exact match on column {} and counting the number of differences".format(column.name))
           exact_matches = ~self.table1[column.name].fillna("NULL").eq(self.table2[column.name].fillna("NULL"))
 
           self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(exact_matches)
           self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(exact_matches)
-
           number_of_differences = exact_matches.sum()
           return ("EXACT", number_of_differences)
         elif column[0] == "IGNORE": # do not check; there are no failures (0)
@@ -223,21 +365,80 @@ class Validator:
     else:
       self.logger.debug("Column {} was not found; indicating np.nan failures".format(column.name))
       return ("COLUMN " + column.name + " NOT FOUND", np.nan)
+
+  def validate_files(self, column):
+    """
+    Perform validation of matching file contents based on which of EXACT,
+    IGNORE, or SET is assigned as the column's validation criterion. For SET,
+    sort lines in file before comparing.
+    """
+    validation_criterion = column.iloc[0]
+    if validation_criterion == "EXACT":
+      # we already know where the exact matches are from compare_files()
+      self.validation_table[(column.name, self.table1_name)] = (self.table1
+        .set_index("samples")[column.name]
+        .where(~self.file_exact_matches[column.name])
+        .reset_index()[column.name]
+      )
+      self.validation_table[(column.name, self.table2_name)] = (self.table2
+        .set_index("samples")[column.name]
+        .where(~self.file_exact_matches[column.name])
+        .reset_index()[column.name]
+      )
+      number_of_differences = self.file_number_of_differences.loc[column.name, self.NUM_DIFFERENCES_COL]
+    elif validation_criterion == "IGNORE":
+      number_of_differences = 0
+    elif validation_criterion == "SET":
+      # for SET, sort lines in files then compare
+      concat_columns = pd.concat([self.table1[column.name], self.table2[column.name]], axis=1)
+      concat_columns = concat_columns.applymap(
+        lambda x: x.removeprefix("gs://") if pd.notnull(x) else x
+      )
+      sorted_file_matches = concat_columns.apply(self.compare_sorted_files, axis=1)
+      self.validation_table[(column.name, self.table1_name)] = (self.table1[column.name]
+        .where(~sorted_file_matches)
+      )
+      self.validation_table[(column.name, self.table2_name)] = (self.table2[column.name]
+        .where(~sorted_file_matches)
+      )
+      number_of_differences = len(sorted_file_matches) - sorted_file_matches.sum()
+    else:
+      raise Exception("Only EXACT, IGNORE, and SET validation criteria implemented for file columns")
+    return (validation_criterion, number_of_differences)
+  
+  def compare_sorted_files(self, row):
+    """
+    Compare two files sorted alphabetically by line for a pair of file URIs.
+    """
+    file1 = row.iloc[0]
+    file2 = row.iloc[1]
+    if pd.isnull(file1) and pd.isnull(file2):
+      # count two nulls as matching
+      return True
+    if pd.notnull(file1) and pd.notnull(file2):
+      file1 = os.path.join(self.table1_files_dir, file1)
+      file2 = os.path.join(self.table2_files_dir, file2)
+      with open(file1, "r") as f1, open(file2, "r") as f2:
+          lines1 = f1.readlines()
+          lines2 = f2.readlines()
+      lines1.sort()
+      lines2.sort()
+      return lines1 == lines2
+    # count null + not-null as mismatching
+    return False
   
   """ 
   This function creates, formats, and runs the validation criteria checks
-  """                                                                
+  """
   def run_validation_checks(self):
       self.validation_table = pd.DataFrame()
       
       self.logger.debug("Performing the validation checks")
       self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(self.validation_criteria.apply(lambda x: self.validate(x), result_type="expand")).transpose()
-      
       # format the validation criteria differences table
       self.logger.debug("Formatting the validation criteria differences table")
       self.validation_table.set_index(self.table1["samples"], inplace=True)
       self.validation_table.rename_axis(None, axis="index", inplace=True)
-      self.validation_table.transpose()
       
       self.validation_table.columns = pd.MultiIndex.from_tuples(self.validation_table.columns, names=["Column", "Table"])
 
@@ -317,6 +518,18 @@ class Validator:
     
     self.logger.info("Counting how many cells have values")
     self.count_populated_cells()
+
+    self.logger.info("Determining columns for file comparisons")
+    self.determine_file_columns()
+
+    dir1 = f"{self.table1_files_dir}/"
+    dir2 = f"{self.table2_files_dir}/"
+    os.mkdir(dir1)
+    os.mkdir(dir2)
+
+    self.logger.info("Localizing files to compare...")
+    self.table1[list(self.file_columns)].apply(localize_files, directory=dir1)
+    self.table2[list(self.file_columns)].apply(localize_files, directory=dir2)
     
     self.logger.info("Performing an exact string match")
     self.perform_exact_match()
@@ -329,4 +542,17 @@ class Validator:
     self.make_pdf_report()
     
     self.logger.info("Done!")
-    
+
+def localize_files(row, directory):
+  """
+  Download files to compare from GCP.
+  """
+  for value in row:
+    if isinstance(value, str) and value.startswith("gs://"):
+      # it would be much faster to copy files all at once, but any files with
+      # the same name would be clobbered, so create local directories matching
+      # gsutil path and loop to copy
+      remote_path = os.path.dirname(value.removeprefix("gs://"))
+      destination_path = os.path.join(directory, remote_path)
+      os.makedirs(destination_path, exist_ok=True)
+      subprocess.run(["gsutil", "-m", "cp", value, destination_path])
