@@ -1,0 +1,7 @@
+Column	assembly_length	assembly_length	gambit_predicted_taxon	gambit_predicted_taxon	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes	file_column	file_column	sort_file_column	sort_file_column
+Table	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv
+sample01										
+sample02							gs://path/to/table1_files/mismatch1-1.txt	gs://path/to/table2_files/mismatch1-1.txt	gs://path/to/table1_files/mismatch1-1.txt	gs://path/to/table2_files/mismatch1-1.txt
+sample03	4719410.0	5287603.0	Shigella	Shigella sonnei		glpT_E448K,gyrA_D87G,gyrA_S83L,sat2	gs://path/to/table1_files/mismatch2-1.txt	gs://path/to/table2_files/mismatch2-1.txt		
+sample04							gs://path/to/table1_files/mismatch2-1.txt		gs://path/to/table1_files/mismatch1-1.txt	
+sample05										

@@ -1,0 +1,8 @@
+	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes	assembly_length	assembly_length	extra_column	extra_column	gambit_predicted_taxon	gambit_predicted_taxon	sort_file_column	sort_file_column	file_column	file_column
+	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv	table1_with_files.tsv	table2_with_files.tsv
+samples												
+sample01	tet(A),aph(6)-Id,aph(3'')-Ib	aph(3'')-Ib,aph(6)-Id,tet(A)	4783605	4783610								
+sample02	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2,dfrA1,parC_S80I,blaCTX-M-27	glpT_E448K,gyrA_D87G,gyrA_S83L,parC_S80I,blaCTX-M-27,sat2,dfrA1	5226301	5274928					gs://path/to/table1_files/mismatch1-1.txt	gs://path/to/table2_files/mismatch1-1.txt	gs://path/to/table1_files/mismatch1-1.txt	gs://path/to/table2_files/mismatch1-1.txt
+sample03		glpT_E448K,gyrA_D87G,gyrA_S83L,sat2	4719410	5287603	extra_value		Shigella	Shigella sonnei	gs://path/to/table1_files/sortmatch1-1.txt	gs://path/to/table2_files/sortmatch1-1.txt	gs://path/to/table1_files/mismatch2-1.txt	gs://path/to/table2_files/mismatch2-1.txt
+sample04	sul1,aadA7,parC_S87L,gyrA_T83I	parC_S87L,gyrA_T83I,sul1,aadA7	6674526	6674503		extra_value			gs://path/to/table1_files/mismatch1-1.txt		gs://path/to/table1_files/mismatch2-1.txt	
+sample05	parC_S80Y,tet(38),mecR1,murA_G257D,fosB,gyrA_S84L,mecA	parC_S80Y,tet(38),fosB,gyrA_S84L,mecA,mecR1,murA_G257D	2773544	2771914								

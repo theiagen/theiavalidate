@@ -72,16 +72,15 @@ column2         SET
 column3         0.01
 ```
 
-Currently implmented validation criteria include:
+Currently implemented validation criteria include:
 
 | validation_criteria | explanation |
 | --- | --- |
-| EXACT | the values in the two columns must be exactly the same; in this case `[foo,bar] != [bar,foo]` |
-| SET | the values in the two columns must be the same set of values; in this case `[foo,bar] == [bar,foo]` |
-| \<FLOAT\> | the values in the two columns must be within `<FLOAT>*100` of each other; e.g., 0.3 -> 30% difference allowed |
-| IGNORE | the values in the two columns are assumed to match; in this case `foo == bar` |
+| EXACT | The values in the two columns must be exactly the same; in this case `[foo,bar] != [bar,foo]`. When applied to columns referencing files, file contents will be compared to check if they are identical.|
+| SET | The values in the two columns must be the same set of values; in this case `[foo,bar] == [bar,foo]`. When applied to columns referencing files, the lines within the files will be sorted alphabetically before comparing.|
+| \<FLOAT\> | The values in the two columns must be within `<FLOAT>*100` of each other; e.g., 0.3 -> 30% difference allowed. |
+| IGNORE | The values in the two columns are assumed to match; in this case `foo == bar`. |
 
-Future comparisons to include `FILE-EXACT`, `FILE-SET`, `FILE-<FLOAT>`.
 
 #### Optional: `column_translation`
 
@@ -149,3 +148,6 @@ This file (available as an HTML and PDF) is a summary of the differences between
   - the number of samples failing the validation criteria
 
 If a `validation_criteria.tsv` file was provided, a definition of the (currently implemented) validation criteria are provided at the bottom of the table
+
+#### `<sample>_<column>_diff.txt`
+Shows the differing lines within mismatching files for a given sample and column. Each pair of mismatching files generates a separate file.

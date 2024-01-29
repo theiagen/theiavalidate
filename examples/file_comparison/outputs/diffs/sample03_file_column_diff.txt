@@ -1,0 +1,3 @@
+--- table1_files/path/to/table1_files/mismatch2-1.txt+++ table2_files/path/to/table2_files/mismatch2-1.txt@@ -1,2 +1 @@-1 2 3
+-
++1 2
