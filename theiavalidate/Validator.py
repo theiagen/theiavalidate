@@ -354,17 +354,18 @@ class Validator:
             "Calculating the difference between {}s".format(value1.name))
         # |x - y|
         return np.absolute(value2.sub(value1))
-        
-
 
     def validate(self, column):
         """This function checks column content to see if it meets user-defined validation criteria
         """
         
-        if pd.isnull(column.iloc[1]):
+        try:
+            if pd.isnull(column.iloc[1]):
+                delimiter = ","
+            else:
+                delimiter = column.iloc[1]
+        except:
             delimiter = ","
-        else:
-            delimiter = column.iloc[1]
                 
         if column.name in self.table1.columns:
             # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
@@ -393,16 +394,31 @@ class Validator:
                 elif column.iloc[0] == "SET":  # check list items for identical content
                     self.logger.debug(
                         "Performing a set comparison on column {} and counting the number of differences".format(column.name))
-                    differences = (~self.table1[column.name].fillna("NULL").apply(lambda x: set(x.split(
-                        delimiter))).eq(self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))))
-
+                    table1_set = self.table1[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))
+                    table2_set = self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))
+                    differences = (~table1_set.eq(table2_set))
+                    
+                    set_differences = table1_set.combine(table2_set, lambda x, y: (x - y, y - x))
+                    
                     self.validation_table[(
-                        column.name, self.table1_name)] = self.table1[column.name].where(differences)
+                        column.name, self.table1_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[0])) if x else '')
                     self.validation_table[(
-                        column.name, self.table2_name)] = self.table2[column.name].where(differences)
+                        column.name, self.table2_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[1])) if x else '')
 
                     number_of_differences = (differences).sum()
                     return ("SET", number_of_differences)
+                elif "," in column.iloc[0]:
+                    # this would be the spot to split on the delimiter. i could do recursion? 
+                    # i'm not sure how that would work though with the current return statements;
+                    # we want to know what samples did NOT pass item[0] and run THOSe through item[1]
+                    # i don't want to have to rewrite all of the different combinations so recursion 
+                    # would be preferred....
+                    self.logger.debug("A comma was identified within the criteria ({}); the criteria will be checked left to right for {}".format(column.iloc[0], column.name))
+                    criteria_options = column.iloc[0].split(",")
+                    
+                    
+                    return ("String value not recognized", np.nan)
+
                 else:
                     self.logger.debug(
                         "String value ({}) not recognized".format(column.iloc[0]))
