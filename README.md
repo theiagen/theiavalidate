@@ -4,10 +4,24 @@ Note: this repository is undergoing active development. Check back for updates.
 
 ## Docker
 
-We recommend using our Docker image to run this tool.
+We recommend using our Docker image to run this tool as all dependencies are installed for your convenience.
 
 ```bash
 docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:0.1.0
+```
+
+## Dependencies
+
+To use this tool on the command line, please ensure all dependencies are installed. Feel free to use the requirements.txt file within this repository as demonstrated by the following command:
+
+```
+pip3 install -r requirements.txt
+```
+
+To generate the PDF report, please ensure the following is installed as well:
+
+```
+apt-get install wkhtmltopdf
 ```
 
 ## Usage

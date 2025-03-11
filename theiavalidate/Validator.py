@@ -63,21 +63,14 @@ class Validator:
         self.na_values = options.na_values
 
         if (self.column_translation is not None):
-            self.logger.debug("Creating a dictionary from the column translation file named {}".format(
-                self.column_translation))
-            self.column_translation = pd.read_csv(
-                self.column_translation, sep="\t", header=None, index_col=0).squeeze().to_dict()
-            self.logger.debug("Column translation: {}".format(
-                self.column_translation))
+            self.logger.debug("Creating a dictionary from the column translation file named {}".format(self.column_translation))
+            self.column_translation = pd.read_csv(self.column_translation, sep="\t", header=None, index_col=0).squeeze().to_dict()
+            self.logger.debug("Column translation: {}".format(self.column_translation))
         if (self.validation_criteria is not None):
-            self.logger.debug("Creating a dictionary from the validation criteria file named {}".format(
-                self.validation_criteria))
-            self.validation_criteria = pd.read_csv(
-                self.validation_criteria, sep="\t", index_col=0).transpose()
-            self.validation_criteria = self.validation_criteria.apply(
-                to_numeric_safe).convert_dtypes()
-            self.logger.debug("Validation criteria: {}".format(
-                self.validation_criteria))
+            self.logger.debug("Creating a dataframe from the validation criteria file named {}".format(self.validation_criteria))
+            self.validation_criteria = pd.read_csv(self.validation_criteria, sep="\t", index_col=0).transpose()
+            self.validation_criteria = self.validation_criteria.apply(to_numeric_safe).convert_dtypes()
+            self.logger.debug("Validation criteria: {}".format(self.validation_criteria))
 
     def convert_table_to_dataframe(self, table):
         """This function converts a TSV file into a pandas dataframe, renames the headers if a dictionary is provided, and replaces "None" string cells with NaNs
@@ -197,10 +190,10 @@ class Validator:
 
     def perform_exact_match(self):
         """
-        This function performs an exact match and creates and Excel file that contains the exact match differences
+        This function performs an exact match and creates an Excel file 
+        that contains the exact match differences
         """
-        self.logger.debug(
-            "Performing an exact match and removing the sample name column")
+        self.logger.debug("Performing an exact match and removing the sample name column")
 
         if self.file_columns:
             # exclude file_columns for string comparison
@@ -208,7 +201,6 @@ class Validator:
             table2 = self.table2.drop(list(self.file_columns), axis=1)
 
             # handle file comparisons separately from strings
-            # TODO: set index to samples column in main table earlier?
             files_df1 = self.table1.set_index("samples")
             files_df2 = self.table2.set_index("samples")
             files_df1 = files_df1[list(self.file_columns)]
@@ -221,27 +213,24 @@ class Validator:
 
         # count the number of differences using exact string matches
         # temporarily make NaNs null since NaN != NaN for the pd.DataFrame.eq() function
-        # also: remove the samplename row
         number_of_differences = pd.DataFrame((~table1.fillna("NULL").astype(str).eq(
             table2.fillna("NULL").astype(str))).sum(), columns=[self.NUM_DIFFERENCES_COL])
-
+        
+        # remove the samplename row
         number_of_differences.drop("samples", axis=0, inplace=True)
 
         # add the number of differences to the summary output table
-        self.logger.debug(
-            "Adding the number of exact match differences to the summary table")
+        self.logger.debug("Adding the number of exact match differences to the summary table")
         self.summary_output = pd.concat(
             [self.summary_output, number_of_differences], join="outer", axis=1)
 
+        # include any file differences
         if self.file_number_of_differences is not None:
-            self.summary_output = self.summary_output.combine_first(
-                self.file_number_of_differences)
-        self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output[self.NUM_DIFFERENCES_COL].astype(
-            int)
+            self.summary_output = self.summary_output.combine_first(self.file_number_of_differences)
+        self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output[self.NUM_DIFFERENCES_COL].astype(int)
 
-        # ensure number of differences column is the last column
-        self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output.pop(
-            self.NUM_DIFFERENCES_COL)
+        # ensure number of differences column is the last column (for PDF report appearance)
+        self.summary_output[self.NUM_DIFFERENCES_COL] = self.summary_output.pop(self.NUM_DIFFERENCES_COL)
 
         # get a table of self-other differences
         # also: temporarily drop the sample name column for comparison and then set it as the index for the output data frame
@@ -251,7 +240,8 @@ class Validator:
         # rename the self and other with the table names
         self.logger.debug("Renaming the self and other to be the table names")
         exact_differences_table.rename(
-            columns={"self": self.table1_name, "other": self.table2_name}, level=-1, inplace=True)
+            columns={"self": self.table1_name, "other": self.table2_name}, 
+            level=-1, inplace=True)
 
         # add file exact differences
         exact_differences_table = pd.concat(
@@ -261,8 +251,7 @@ class Validator:
         self.logger.debug("Replacing all NA values with blanks")
         exact_differences_table.replace(np.nan, "", inplace=True)
 
-        self.logger.debug(
-            "Writing the self-other differences table to a TSV file")
+        self.logger.debug("Writing the self-other differences table to a TSV file")
         exact_differences_table.to_csv(
             self.output_prefix + "_exact_differences.tsv", sep="\t", index=True)
 
@@ -352,18 +341,39 @@ class Validator:
         difference = np.absolute(value2.sub(value1)).div(value2.add(value1)/2)
         return difference
 
+    def range_difference(self, value1, value2):
+        """This function calculates the numerical difference between two values
+
+        Args:
+            value1 (Int): The value from the first table
+            value2 (Int): The value from the second table
+        """
+        value1 = value1.apply(to_numeric_safe)
+        value2 = value2.apply(to_numeric_safe)
+        self.logger.debug(
+            "Calculating the difference between {}s".format(value1.name))
+        # |x - y|
+        return np.absolute(value2.sub(value1))
+        
+
+
     def validate(self, column):
         """This function checks column content to see if it meets user-defined validation criteria
         """
+        
+        if pd.isnull(column.iloc[1]):
+            delimiter = ","
+        else:
+            delimiter = column.iloc[1]
+                
         if column.name in self.table1.columns:
             # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
             if column.name in self.file_columns:
                 # handle file validation separately from strings, floats
-                validation_criterion, number_of_differences = self.validate_files(
-                    column)
+                validation_criterion, number_of_differences = self.validate_files(column)
                 return (validation_criterion, number_of_differences)
             elif pd.api.types.is_string_dtype(column) is True:  # if a string
-                if column[0] == "EXACT":  # count the number of exact match failures/differences
+                if column.iloc[0] == "EXACT":  # count the number of exact match failures/differences
                     self.logger.debug(
                         "Performing an exact match on column {} and counting the number of differences".format(column.name))
                     exact_matches = ~self.table1[column.name].fillna(
@@ -376,15 +386,15 @@ class Validator:
                     number_of_differences = exact_matches.sum()
                     return ("EXACT", number_of_differences)
                 # do not check; there are no failures (0)
-                elif column[0] == "IGNORE":
+                elif column.iloc[0] == "IGNORE":
                     self.logger.debug(
                         "Ignoring column {} and indicating 0 failures".format(column.name))
                     return ("IGNORE", 0)
-                elif column[0] == "SET":  # check list items for identical content
+                elif column.iloc[0] == "SET":  # check list items for identical content
                     self.logger.debug(
                         "Performing a set comparison on column {} and counting the number of differences".format(column.name))
                     differences = (~self.table1[column.name].fillna("NULL").apply(lambda x: set(x.split(
-                        ","))).eq(self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(",")))))
+                        delimiter))).eq(self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))))
 
                     self.validation_table[(
                         column.name, self.table1_name)] = self.table1[column.name].where(differences)
@@ -395,13 +405,13 @@ class Validator:
                     return ("SET", number_of_differences)
                 else:
                     self.logger.debug(
-                        "String value ({}) not recognized".format(column[0]))
+                        "String value ({}) not recognized".format(column.iloc[0]))
                     return ("String value not recognized", np.nan)
             elif pd.api.types.is_float_dtype(column) is True:  # if a float
                 self.logger.debug(
                     "Performing a percent difference comparison on column {} and counting the number of differences".format(column.name))
                 differences = self.percent_difference(
-                    self.table1[column.name], self.table2[column.name]).gt(column[0])
+                    self.table1[column.name], self.table2[column.name]).gt(column.iloc[0])
 
                 self.validation_table[(
                     column.name, self.table1_name)] = self.table1[column.name].where(differences)
@@ -409,12 +419,23 @@ class Validator:
                     column.name, self.table2_name)] = self.table2[column.name].where(differences)
 
                 number_of_differences = differences.sum()
-                return ("PERCENT_DIFF: " + format(column[0], ".2%"), number_of_differences)
+                return ("PERCENT_DIFF: " + format(column.iloc[0], ".2%"), number_of_differences)
             # if an integer
             elif pd.api.types.is_integer_dtype(column) is True:
                 self.logger.debug(
-                    "Ignoring column {} and indicating np.nan failures".format(column.name))
-                return ("INTEGER; IGNORED FOR NOW", np.nan)
+                    "Performing a range functionality on column {} and indicating the number of differences".format(column.name))
+                # is | x -y | > difference
+                differences = self.range_difference(
+                    self.table1[column.name], self.table2[column.name]).gt(column.iloc[0])
+                
+                self.validation_table[(
+                    column.name, self.table1_name)] = self.table1[column.name].where(differences)
+                self.validation_table[(
+                    column.name, self.table2_name)] = self.table2[column.name].where(differences)
+
+                number_of_differences = differences.sum()
+                return ("RANGE: " + format(column.iloc[0]), number_of_differences)
+       
             else:  # it's an object type, do not check
                 self.logger.debug(
                     "Ignoring column {} and indicating np.nan failures".format(column.name))
@@ -584,26 +605,26 @@ class Validator:
         self.table1_name = os.path.basename(self.table1_name)
         self.table2_name = os.path.basename(self.table2_name)
 
-        self.logger.info(
-            "Filtering the tables to only include the columns to compare")
+        self.logger.info("Filtering the tables to only include the columns to compare")
         self.create_filtered_table()
 
         self.logger.info("Counting how many cells have values")
         self.count_populated_cells()
 
-        self.logger.info("Determining columns for file comparisons")
+        self.logger.info("Determining if any columns need file comparisons")
         self.determine_file_columns()
 
-        dir1 = f"{self.table1_files_dir}/"
-        dir2 = f"{self.table2_files_dir}/"
-        os.mkdir(dir1)
-        os.mkdir(dir2)
+        if self.file_columns:
+            dir1 = f"{self.table1_files_dir}/"
+            dir2 = f"{self.table2_files_dir}/"
+            os.mkdir(dir1)
+            os.mkdir(dir2)
 
-        self.logger.info("Localizing files to compare...")
-        self.table1[list(self.file_columns)].apply(
-            localize_files, directory=dir1)
-        self.table2[list(self.file_columns)].apply(
-            localize_files, directory=dir2)
+            self.logger.info("Localizing files to compare...")
+            self.table1[list(self.file_columns)].apply(
+                localize_files, directory=dir1)
+            self.table2[list(self.file_columns)].apply(
+                localize_files, directory=dir2)
 
         self.logger.info("Performing an exact string match")
         self.perform_exact_match()
