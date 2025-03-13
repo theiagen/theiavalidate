@@ -1,6 +1,6 @@
-table1	assembly_length	gambit_predicted_taxon	amrfinderplus_amr_core_genes	extra_column
-sample01	4783605	Salmonella enterica	tet(A),aph(6)-Id,aph(3'')-Ib	extra_value
-sample02	5226301	Shigella sonnei	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2,dfrA1,parC_S80I,blaCTX-M-27	
-sample03	4719410	Shigella		extra_value
-sample04	6674526	Pseudomonas aeruginosa	sul1,aadA7,parC_S87L,gyrA_T83I	
-sample05	2773544	Staphylococcus aureus	parC_S80Y,tet(38),mecR1,murA_G257D,fosB,gyrA_S84L,mecA	
+table1	busco_results	assembly_length	gambit_predicted_taxon	amrfinderplus_amr_core_genes	extra_column
+sample01	C:96.5%[S:96.3%,D:0.2%],F:1.5%,M:2.0%,n:402	2783605	Salmonella enterica	tet(A),aph(6)-Id,aph(3'')-Ib	extra_value
+sample02	C:61.4%[S:61.4%,D:0.0%],F:25.6%,M:13.0%,n:402	5226301	Shigella sonnei	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2,dfrA1,parC_S80I
+sample03	C:52.9%[S:52.7%,D:0.2%],F:29.9%,M:17.2%,n:402	4719410	Shigella		extra_value
+sample04	C:52.7%[S:51.5%,D:1.2%],F:20.9%,M:26.4%,n:402	6674526	Pseudomonas aeruginosa	sul1,aadA7,parC_S87L,gyrA_T83I	
+sample05	C:94.0%[S:93.8%,D:0.2%],F:4.0%,M:2.0%,n:402	5039	Staphylococcus aureus	parC_S80Y,tet(38),mecR1,murA_G257D,fosB,gyrA_S84L,mecA	

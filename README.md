@@ -7,7 +7,7 @@ Note: this repository is undergoing active development. Check back for updates.
 We recommend using our Docker image to run this tool as all dependencies are installed for your convenience.
 
 ```bash
-docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:0.1.0
+docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:1.0.0
 ```
 
 ## Dependencies
@@ -75,15 +75,15 @@ The `columns_to_compare` variable determines what columns will be examined. This
 
 #### Optional: `validation_criteria`
 
-An example validation_criteria.tsv file is shown below. The first column is the column name in the two tables. The second column is the validation criteria to use for that column. This file **expects a header** and is tab-delimited.
+An example validation_criteria.tsv file is shown below. The first column is the column name in the two tables. The second column is the validation criteria to use for that column. The third column can contain any non-standard delimiters that are found for that particular column (e.g., ":" or "/"). This file **expects a header** and is **tab-delimited**. The text in the header does not matter.
 
 **CAUTION:** Any column names in this file must also be in `columns_to_compare` for additional validation criteria to be performed.
 
 ```text
-column_name     validation_criteria
-column1         EXACT
-column2         SET
-column3         0.01
+column_name     validation_criteria     delimiter
+column1         EXACT                   
+column2         SET                     ";"
+column3         0.01                    
 ```
 
 Currently implemented validation criteria include:
@@ -92,15 +92,17 @@ Currently implemented validation criteria include:
 | --- | --- |
 | EXACT | The values in the two columns must be exactly the same; in this case `[foo,bar] != [bar,foo]`. When applied to columns referencing files, file contents will be compared to check if they are identical.|
 | SET | The values in the two columns must be the same set of values; in this case `[foo,bar] == [bar,foo]`. When applied to columns referencing files, the lines within the files will be sorted alphabetically before comparing.|
+| \<INT\> | The values in the two columns must be within `<INT>` of each other; e.g., 50 -> 50 units apart allowed. |
 | \<FLOAT\> | The values in the two columns must be within `<FLOAT>*100` of each other; e.g., 0.3 -> 30% difference allowed. |
 | IGNORE | The values in the two columns are assumed to match; in this case `foo == bar`. |
-
+| CRITERIA1,CRITERIA2,... | The values in the two columns will be compared with CRITERIA1 (as indicated above) and _then_ with CRITERIA2, etc.; values pass if at least one criteria are met; the separate criteria *must* be comma-delimited. |
 
 #### Optional: `column_translation`
 
-An example column_translation.tsv file is shown below. The first column is the column name in one table, and the second column is the corresponding column name in the other table. _All columns with the name in the first column will be renamed to match the corresponding column name in the second column_. This file has **no header** and is tab-delimited.
+An example column_translation.tsv file is shown below. The first column is the column name in one table, and the second column is the corresponding column name in the other table. _All columns with the name in the first column will be renamed to match the corresponding column name in the second column_. This file **expects a header** and is tab-delimited. The text within the header does not matter and is not used.
 
 ```
+old_name               new_name
 column_name1_table1    column_name1_table2
 column_name2_table1    column_name2_table2
 original_column_name   new_column_name
@@ -147,6 +149,8 @@ This file is a tab-delimited file containing all rows and columns specified in `
 #### `<output_prefix>_validation_criteria_differences.tsv`
 
 **NOTE:** This file is only provided if a `validation_criteria.tsv` file is provided. This file is a tab-delimited file containing all rows and columns specified in `columns_to_compare`. The only values in this file are the values that do not meet the validation criteria specified in the `validation_criteria.tsv` file.
+
+Columns with all values passing validation criteria are excluded. For set comparisons, _only the differences are displayed_; i.e., the items for the column in table1 that were not found in table2 will be found under the table1 column and vice versa. Please note that either of these behaviors may not apply for rows with multiple criteria (`SET,0.05`).
 
 #### `<output_prefix>_summary.html` and `<output_prefix>_summary.pdf`
 

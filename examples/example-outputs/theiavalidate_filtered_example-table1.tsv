@@ -1,0 +1,6 @@
+samples	assembly_length	gambit_predicted_taxon	amrfinderplus_amr_core_genes	est_coverage
+sample01	4783605	Salmonella enterica	tet(A),aph(6)-Id,aph(3'')-Ib	
+sample02	5226301	Shigella sonnei	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2,dfrA1,parC_S80I	
+sample03	4719410	Shigella		
+sample04	6674526	Pseudomonas aeruginosa	sul1,aadA7,parC_S87L,gyrA_T83I	
+sample05	2773544	Staphylococcus aureus	parC_S80Y,tet(38),mecR1,murA_G257D,fosB,gyrA_S84L,mecA	

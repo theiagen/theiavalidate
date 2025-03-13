@@ -9,6 +9,7 @@ import numpy as np
 import os
 import pandas as pd
 import pdfkit as pdf
+import re
 import subprocess
 import sys
 
@@ -64,7 +65,7 @@ class Validator:
 
         if (self.column_translation is not None):
             self.logger.debug("Creating a dictionary from the column translation file named {}".format(self.column_translation))
-            self.column_translation = pd.read_csv(self.column_translation, sep="\t", header=None, index_col=0).squeeze().to_dict()
+            self.column_translation = pd.read_csv(self.column_translation, sep="\t", index_col=0).squeeze().to_dict()
             self.logger.debug("Column translation: {}".format(self.column_translation))
         if (self.validation_criteria is not None):
             self.logger.debug("Creating a dataframe from the validation criteria file named {}".format(self.validation_criteria))
@@ -330,7 +331,7 @@ class Validator:
             with open(output_path, "w") as out:
                 out.write(diff)
 
-    def percent_difference(self, value1, value2):
+    def percent_difference(self, value1, value2, delimiter, gt_value):
         """This function calculates the percent difference between two values
         
         Args:
@@ -340,30 +341,40 @@ class Validator:
         Returns:
             Float: the percent difference between the values
         """
-        value1 = value1.apply(to_numeric_safe)
-        value2 = value2.apply(to_numeric_safe)
-        self.logger.debug(
-            "Calculating the percent difference between {}s".format(value1.name))
-        # |x-y|/((x+y)/2)
-        difference = np.absolute(value2.sub(value1)).div(value2.add(value1)/2)
-        return difference
+          # split them on the delimiters and then make sure that the values are numeric so we don't do math with strings ugh
+        value1_numbers = value1.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
+        value2_numbers = value2.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
 
-    def range_difference(self, value1, value2):
+        # if the number of items in val1_numbers[0] is different than val2_numbers[1] it should fail
+        unequal_values = value1_numbers.apply(len) != value2_numbers.apply(len)
+        self.logger.debug("Calculating the percent difference between {}".format(value1.name))
+        
+        math_differences = value1_numbers.combine(value2_numbers, lambda x1, x2: (np.absolute(np.array(x2) - np.array(x1)) / ((np.array(x2) + np.array(x1)) / 2)) if len(x1) == len(x2) else [np.nan])
+        # |x-y|/((x+y)/2)
+        return unequal_values & math_differences.apply(lambda x: all(diff > gt_value if not np.isnan(diff) else True for diff in x ))
+
+    def range_difference(self, value1, value2, delimiter, gt_value):
         """This function calculates the numerical difference between two values
 
         Args:
-            value1 (Int): The value from the first table
-            value2 (Int): The value from the second table
+            value1 (pd.Series): The value from the first table
+            value2 (pd.Series): The value from the second table
+            delimiter (String): delimiters to split the values on if necessary
         
         Returns:
             Int: the absolute difference between the two values
         """
-        value1 = value1.apply(to_numeric_safe)
-        value2 = value2.apply(to_numeric_safe)
-        self.logger.debug(
-            "Calculating the difference between {}s".format(value1.name))
-        # |x - y|
-        return np.absolute(value2.sub(value1))
+        # split them on the delimiters and then make sure that the values are numeric so we don't do math with strings ugh
+        value1_numbers = value1.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
+        value2_numbers = value2.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
+
+        # if the number of itmes in val1_numbers[0] is different than val2_numbers[1] it should fail
+        unequal_values = value1_numbers.apply(len) != value2_numbers.apply(len)
+        self.logger.debug("Calculating the difference between {}".format(value1.name))
+        
+        # |x - y| 
+        math_differences = value1_numbers.combine(value2_numbers, lambda x1, x2: np.absolute(np.array(x2) - np.array(x1) if len(x1) == len(x2) else [np.nan]))
+        return unequal_values & math_differences.apply(lambda x: all(diff > gt_value if not np.isnan(diff) else True for diff in x ))
 
     def convert_dtype(self, val):
         """convert variable dtypes appropriately
@@ -378,17 +389,17 @@ class Validator:
             return int(val) if "." not in val else float(val)
         return val
 
-    def validate(self, column):
+    def validate(self, column, top_level=True):
         """This function checks column content to see if it meets user-defined validation criteria
         """
         
         try:
             if pd.isnull(column.iloc[1]):
-                delimiter = ","
+                delimiter = "[,]"
             else:
-                delimiter = column.iloc[1]
+                delimiter = "[{}]".format(re.escape(column.iloc[1]))
         except:
-            delimiter = ","
+            delimiter = "[,]"
         column.iloc[0] = self.convert_dtype(column.iloc[0])
 
         if column.name in self.table1.columns:
@@ -404,11 +415,15 @@ class Validator:
                     exact_matches = ~self.table1[column.name].fillna(
                         "NULL").eq(self.table2[column.name].fillna("NULL"))
 
-                    self.validation_table[(
-                        column.name, self.table1_name)] = self.table1[column.name].where(exact_matches)
-                    self.validation_table[(
-                        column.name, self.table2_name)] = self.table2[column.name].where(exact_matches)
                     number_of_differences = exact_matches.sum()
+                    
+                     # only write out columns that fail validation criteria
+                    if number_of_differences > 0:
+                        self.validation_table[(
+                            column.name, self.table1_name)] = self.table1[column.name].where(exact_matches)
+                        self.validation_table[(
+                            column.name, self.table2_name)] = self.table2[column.name].where(exact_matches)
+
                     return ("EXACT", number_of_differences)
                 # do not check; there are no failures (0)
                 elif column.iloc[0] == "IGNORE":
@@ -418,19 +433,24 @@ class Validator:
                 elif column.iloc[0] == "SET":  # check list items for identical content
                     self.logger.debug(
                         "Performing a set comparison on column {} and counting the number of differences".format(column.name))
-                    table1_set = self.table1[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))
-                    table2_set = self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))
+                    table1_set = self.table1[column.name].fillna("NULL").apply(lambda x: set(re.split(delimiter, x)))
+                    table2_set = self.table2[column.name].fillna("NULL").apply(lambda x: set(re.split(delimiter, x)))
+                    print(table1_set)
+                    print(table2_set)
                     differences = (~table1_set.eq(table2_set))
                     
-                    # only output what's different between the sets to the validation_criteria fail table
-                    set_differences = table1_set.combine(table2_set, lambda x, y: (x - y, y - x))
-                    
-                    self.validation_table[(
-                        column.name, self.table1_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[0])) if x else '')
-                    self.validation_table[(
-                        column.name, self.table2_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[1])) if x else '')
-
                     number_of_differences = (differences).sum()
+                    
+                     # only write out columns that fail validation criteria
+                    if number_of_differences > 0:
+                        # only output what's different between the sets to the validation_criteria fail table
+                        set_differences = table1_set.combine(table2_set, lambda x, y: (x - y, y - x))
+                                            
+                        self.validation_table[(
+                            column.name, self.table1_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[0])) if x else '')
+                        self.validation_table[(
+                            column.name, self.table2_name)] = set_differences.apply(lambda x: ', '.join(sorted(x[1])) if x else '')
+
                     return ("SET", number_of_differences)
                 elif "," in column.iloc[0]:
                     self.logger.debug("A comma was identified within the criteria ({}); the criteria will be checked left to right for {}".format(column.iloc[0], column.name))
@@ -447,7 +467,7 @@ class Validator:
                         temp_column.iloc[0] = criteria
                         
                         # these two variables won't be used because we're going to be using the "failing_rows" one instead
-                        validation_result, num_failures = self.validate(temp_column)
+                        validation_result, num_failures = self.validate(temp_column, False)
                         
                         # so the output of right-hand side of this is a boolean array
                         # if the values in validation_table (the output table) are NA that means that the values 
@@ -455,15 +475,23 @@ class Validator:
                         # the &= does an AND operation between the old boolean table (left) and the new one (right)
                         # this is because failure is represented by a true and passing is represented by a false
                         # if something passes with one criteria we want it to be false thus the & instead of an |
-                        failing_rows &= self.validation_table[(column.name, self.table1_name)].notna()
+                        if column.name in self.validation_table:
+                            failing_rows &= self.validation_table[(column.name, self.table1_name)].notna()
+                        elif top_level == True:
+                            failing_rows = pd.Series(False, index=self.table1.index)
 
                         if failing_rows.sum() == 0:
-                            # false rows are 0, true rows are 1
+                            # failing (True) rows are 0, passing (False) rows are 1
+                            # all pass
                             break
 
                     # correct the output table with final results
-                    self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(failing_rows)
-                    self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(failing_rows)
+                    # only write out columns that fail validation criteria
+                    print(failing_rows)
+                    print(column.name)
+                    if failing_rows.sum() == len(failing_rows):
+                        self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(failing_rows)
+                        self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(failing_rows)
 
                     return (column.iloc[0], failing_rows.sum())
                 else:
@@ -474,14 +502,17 @@ class Validator:
                 self.logger.debug(
                     "Performing a percent difference comparison on column {} and counting the number of differences".format(column.name))
                 differences = self.percent_difference(
-                    self.table1[column.name], self.table2[column.name]).gt(column.iloc[0])
-
-                self.validation_table[(
-                    column.name, self.table1_name)] = self.table1[column.name].where(differences)
-                self.validation_table[(
-                    column.name, self.table2_name)] = self.table2[column.name].where(differences)
+                    self.table1[column.name], self.table2[column.name], delimiter, column.iloc[0])
 
                 number_of_differences = differences.sum()
+                
+                 # only write out columns that fail validation criteria
+                if number_of_differences > 0:
+                    self.validation_table[(
+                        column.name, self.table1_name)] = self.table1[column.name].where(differences)
+                    self.validation_table[(
+                        column.name, self.table2_name)] = self.table2[column.name].where(differences)
+
                 return ("PERCENT_DIFF: " + format(column.iloc[0], ".2%"), number_of_differences)
             # if an integer
             elif isinstance(column.iloc[0], int):
@@ -489,14 +520,17 @@ class Validator:
                     "Performing a range functionality on column {} and indicating the number of differences".format(column.name))
                 # is | x-y | > difference?
                 differences = self.range_difference(
-                    self.table1[column.name], self.table2[column.name]).gt(column.iloc[0])
+                    self.table1[column.name], self.table2[column.name], delimiter, column.iloc[0])
                 
-                self.validation_table[(
-                    column.name, self.table1_name)] = self.table1[column.name].where(differences)
-                self.validation_table[(
-                    column.name, self.table2_name)] = self.table2[column.name].where(differences)
-
                 number_of_differences = differences.sum()
+                
+                # only write out columns that fail validation criteria
+                if number_of_differences > 0:
+                    self.validation_table[(
+                        column.name, self.table1_name)] = self.table1[column.name].where(differences)
+                    self.validation_table[(
+                        column.name, self.table2_name)] = self.table2[column.name].where(differences)
+
                 return ("RANGE: " + format(column.iloc[0]), number_of_differences)
             else:  # it's an object type, do not check
                 self.logger.debug(
@@ -633,6 +667,12 @@ class Validator:
                 outfile.write(" <dt>PERCENT_DIFF</dt>")
                 outfile.write(
                     " <dd>Tests if two values are more than the indicated percent difference (must be in decimal format)</dd>")
+                outfile.write(" <dt>RANGE</dt>")
+                outfile.write(
+                    " <dd>Tests if two values are more than +- the indicated number (must be in integer format)</dd>")
+                outfile.write(" <dt>COMBINED</dt>")
+                outfile.write(
+                    " <dd>Tests both options and returns a pass for that row if at least one criteria is met</dd>")      
                 outfile.write("</ul>")
 
         # convert to pdf
