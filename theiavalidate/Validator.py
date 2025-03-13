@@ -348,6 +348,7 @@ class Validator:
 
         # if the number of items in val1_numbers[0] is different than val2_numbers[1] it should fail
         unequal_values = value1_numbers.apply(len) != value2_numbers.apply(len)
+
         self.logger.debug("Calculating the percent difference between {}".format(value1.name))
         
         math_differences = value1_numbers.combine(value2_numbers, lambda x1, x2: (np.absolute(np.array(x2) - np.array(x1)) / ((np.array(x2) + np.array(x1)) / 2)) if len(x1) == len(x2) else [np.nan])
@@ -396,12 +397,13 @@ class Validator:
         """
         try:
             if pd.isnull(column.iloc[1]):
-                delimiter = "[,]"
+                delimiter = "[,]" # formatted for re.split()
             else:
                 delimiter = "[{}]".format(re.escape(column.iloc[1]))
         except:
-            delimiter = "[,]"
+            delimiter = "[,]" # formatted for re.split()
         column.iloc[0] = self.convert_dtype(column.iloc[0])
+        print(column.iloc[0], column.apply(type))
 
         if column.name in self.table1.columns:
             # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
@@ -468,29 +470,32 @@ class Validator:
                         temp_column.iloc[0] = criteria
                         
                         # these two variables won't be used because we're going to be using the "failing_rows" one instead
-                        validation_result, num_failures = self.validate(temp_column, False)
-                        
+                        validation_text, num_failures = self.validate(temp_column, False)
+                       
+                       
+                       ###### BUGGED BUGGED BUGGED BUGGED
+                       
                         # so the output of right-hand side of this is a boolean array
-                        # if the values in validation_table (the output table) are NA that means that the values 
-                        # are not present; i.e., they passed validation criteria so we don't want them output.
+                        # if the values in either side (|) of the validation_table (the output table) are NA 
+                        # that means that the values are NOT present; i.e., they passed validation 
+                        # criteria so we don't want them output.
                         # the &= does an AND operation between the old boolean table (left) and the new one (right)
-                        # this is because failure is represented by a true and passing is represented by a false
-                        # if something passes with one criteria we want it to be false thus the & instead of an |
-                        if column.name in self.validation_table:
-                            failing_rows &= self.validation_table[(column.name, self.table1_name)].notna()
-                        elif top_level == True:
-                            failing_rows = pd.Series(False, index=self.table1.index)
-
+                        # this is because FAILURE IS A TRUE AND PASSING IS A FALSE
+                        # if something passes with ONE criteria we want it to be false thus the &= instead of an |=
+                        print(self.validation_table.columns.get_level_values(0))
+                        if (column.name, self.table1_name) in self.validation_table.columns.get_level_values(0):
+                            failing_rows &= (self.validation_table[(column.name, self.table1_name)].notna() 
+                                            | self.validation_table[(column.name, self.table2_name)].notna())
+                            print(failing_rows)
+                        print(failing_rows.sum())
                         if failing_rows.sum() == 0:
                             # failing (True) rows are 0, passing (False) rows are 1
-                            # all pass
+                            # if all pass
                             break
 
                     # correct the output table with final results
                     # only write out columns that fail validation criteria
-                    print(failing_rows)
-                    print(column.name)
-                    if failing_rows.sum() == len(failing_rows):
+                    if failing_rows.sum() == len(failing_rows) and top_level == True:
                         self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(failing_rows)
                         self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(failing_rows)
 
@@ -506,13 +511,15 @@ class Validator:
                     self.table1[column.name], self.table2[column.name], delimiter, column.iloc[0])
 
                 number_of_differences = differences.sum()
-                
+                print("differences")
+                print(differences)
                  # only write out columns that fail validation criteria
                 if number_of_differences > 0:
                     self.validation_table[(
                         column.name, self.table1_name)] = self.table1[column.name].where(differences)
                     self.validation_table[(
                         column.name, self.table2_name)] = self.table2[column.name].where(differences)
+
 
                 return ("PERCENT_DIFF: " + format(column.iloc[0], ".2%"), number_of_differences)
             # if an integer
