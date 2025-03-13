@@ -341,7 +341,8 @@ class Validator:
         Returns:
             Float: the percent difference between the values
         """
-          # split them on the delimiters and then make sure that the values are numeric so we don't do math with strings ugh
+        # thank you my lord and savior chatgpt
+        # split them on the delimiters and then make sure that the values are numeric so we don't do math with strings ugh
         value1_numbers = value1.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
         value2_numbers = value2.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
 
@@ -364,6 +365,7 @@ class Validator:
         Returns:
             Int: the absolute difference between the two values
         """
+        # thank you my lord and savior chatgpt
         # split them on the delimiters and then make sure that the values are numeric so we don't do math with strings ugh
         value1_numbers = value1.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
         value2_numbers = value2.apply(lambda x: [to_numeric_safe(num) for num in re.split(delimiter, str(x)) if to_numeric_safe(num) != num])
@@ -392,7 +394,6 @@ class Validator:
     def validate(self, column, top_level=True):
         """This function checks column content to see if it meets user-defined validation criteria
         """
-        
         try:
             if pd.isnull(column.iloc[1]):
                 delimiter = "[,]"
