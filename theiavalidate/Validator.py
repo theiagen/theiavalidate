@@ -332,6 +332,13 @@ class Validator:
 
     def percent_difference(self, value1, value2):
         """This function calculates the percent difference between two values
+        
+        Args:
+            value1 (Int): the value from the first table
+            value2 (Int): the value from the second table
+            
+        Returns:
+            Float: the percent difference between the values
         """
         value1 = value1.apply(to_numeric_safe)
         value2 = value2.apply(to_numeric_safe)
@@ -347,6 +354,9 @@ class Validator:
         Args:
             value1 (Int): The value from the first table
             value2 (Int): The value from the second table
+        
+        Returns:
+            Int: the absolute difference between the two values
         """
         value1 = value1.apply(to_numeric_safe)
         value2 = value2.apply(to_numeric_safe)
@@ -354,6 +364,19 @@ class Validator:
             "Calculating the difference between {}s".format(value1.name))
         # |x - y|
         return np.absolute(value2.sub(value1))
+
+    def convert_dtype(self, val):
+        """convert variable dtypes appropriately
+
+        Args:
+            val (unknown dtype): the value to appropriately type
+
+        Returns:
+            unknown dtype: the appropriately typed value
+        """
+        if isinstance(val, str) and val.replace(".", "", 1).isdigit():
+            return int(val) if "." not in val else float(val)
+        return val
 
     def validate(self, column):
         """This function checks column content to see if it meets user-defined validation criteria
@@ -366,14 +389,15 @@ class Validator:
                 delimiter = column.iloc[1]
         except:
             delimiter = ","
-                
+        column.iloc[0] = self.convert_dtype(column.iloc[0])
+
         if column.name in self.table1.columns:
             # check the data type of the validation criteria; based on its type, we can assume the comparison to perform
             if column.name in self.file_columns:
                 # handle file validation separately from strings, floats
                 validation_criterion, number_of_differences = self.validate_files(column)
                 return (validation_criterion, number_of_differences)
-            elif pd.api.types.is_string_dtype(column) is True:  # if a string
+            elif isinstance(column.iloc[0], str):  # if a string value is in column[0]
                 if column.iloc[0] == "EXACT":  # count the number of exact match failures/differences
                     self.logger.debug(
                         "Performing an exact match on column {} and counting the number of differences".format(column.name))
@@ -398,6 +422,7 @@ class Validator:
                     table2_set = self.table2[column.name].fillna("NULL").apply(lambda x: set(x.split(delimiter)))
                     differences = (~table1_set.eq(table2_set))
                     
+                    # only output what's different between the sets to the validation_criteria fail table
                     set_differences = table1_set.combine(table2_set, lambda x, y: (x - y, y - x))
                     
                     self.validation_table[(
@@ -408,22 +433,44 @@ class Validator:
                     number_of_differences = (differences).sum()
                     return ("SET", number_of_differences)
                 elif "," in column.iloc[0]:
-                    # this would be the spot to split on the delimiter. i could do recursion? 
-                    # i'm not sure how that would work though with the current return statements;
-                    # we want to know what samples did NOT pass item[0] and run THOSe through item[1]
-                    # i don't want to have to rewrite all of the different combinations so recursion 
-                    # would be preferred....
                     self.logger.debug("A comma was identified within the criteria ({}); the criteria will be checked left to right for {}".format(column.iloc[0], column.name))
                     criteria_options = column.iloc[0].split(",")
                     
+                    # a temporary "differences" series here that we'll update as we recurse
+                    # defauling all to "true" (i.e., all rows fail validation)
+                    failing_rows = pd.Series(True, index=self.table1.index)
                     
-                    return ("String value not recognized", np.nan)
+                    # recurse and iterate
+                    for criteria in criteria_options:
+                        # duplicate the column value and rewrite the criteria to pass recurisvely in
+                        temp_column = column.copy()
+                        temp_column.iloc[0] = criteria
+                        
+                        # these two variables won't be used because we're going to be using the "failing_rows" one instead
+                        validation_result, num_failures = self.validate(temp_column)
+                        
+                        # so the output of right-hand side of this is a boolean array
+                        # if the values in validation_table (the output table) are NA that means that the values 
+                        # are not present; i.e., they passed validation criteria so we don't want them output.
+                        # the &= does an AND operation between the old boolean table (left) and the new one (right)
+                        # this is because failure is represented by a true and passing is represented by a false
+                        # if something passes with one criteria we want it to be false thus the & instead of an |
+                        failing_rows &= self.validation_table[(column.name, self.table1_name)].notna()
 
+                        if failing_rows.sum() == 0:
+                            # false rows are 0, true rows are 1
+                            break
+
+                    # correct the output table with final results
+                    self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(failing_rows)
+                    self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(failing_rows)
+
+                    return (column.iloc[0], failing_rows.sum())
                 else:
                     self.logger.debug(
-                        "String value ({}) not recognized".format(column.iloc[0]))
-                    return ("String value not recognized", np.nan)
-            elif pd.api.types.is_float_dtype(column) is True:  # if a float
+                        "String value ({}) not yet recognized".format(column.iloc[0]))
+                    return ("String value not yet recognized", np.nan)
+            elif isinstance(column.iloc[0], float) is True:  # if a float
                 self.logger.debug(
                     "Performing a percent difference comparison on column {} and counting the number of differences".format(column.name))
                 differences = self.percent_difference(
@@ -437,10 +484,10 @@ class Validator:
                 number_of_differences = differences.sum()
                 return ("PERCENT_DIFF: " + format(column.iloc[0], ".2%"), number_of_differences)
             # if an integer
-            elif pd.api.types.is_integer_dtype(column) is True:
+            elif isinstance(column.iloc[0], int):
                 self.logger.debug(
                     "Performing a range functionality on column {} and indicating the number of differences".format(column.name))
-                # is | x -y | > difference
+                # is | x-y | > difference?
                 differences = self.range_difference(
                     self.table1[column.name], self.table2[column.name]).gt(column.iloc[0])
                 
@@ -451,7 +498,6 @@ class Validator:
 
                 number_of_differences = differences.sum()
                 return ("RANGE: " + format(column.iloc[0]), number_of_differences)
-       
             else:  # it's an object type, do not check
                 self.logger.debug(
                     "Ignoring column {} and indicating np.nan failures".format(column.name))
@@ -494,16 +540,14 @@ class Validator:
             sorted_file_matches = concat_columns.apply(
                 self.compare_sorted_files, axis=1)
             self.validation_table[(column.name, self.table1_name)] = (self.table1[column.name]
-                                                                      .where(~sorted_file_matches)
-                                                                      )
+                                                                      .where(~sorted_file_matches))
             self.validation_table[(column.name, self.table2_name)] = (self.table2[column.name]
-                                                                      .where(~sorted_file_matches)
-                                                                      )
+                                                                      .where(~sorted_file_matches))
             number_of_differences = len(
                 sorted_file_matches) - sorted_file_matches.sum()
         else:
             raise Exception(
-                "Only EXACT, IGNORE, and SET validation criteria implemented for file columns")
+                "Only EXACT, IGNORE, and SET validation criteria are implemented for file columns")
         return (validation_criterion, number_of_differences)
 
     def compare_sorted_files(self, row):
@@ -535,18 +579,16 @@ class Validator:
 
         self.logger.debug("Performing the validation checks")
         self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(
-            self.validation_criteria.apply(lambda x: self.validate(x), result_type="expand")).transpose()
+            self.validation_criteria.apply(lambda x: self.validate(x.astype(object)), result_type="expand")).transpose()
         # format the validation criteria differences table
-        self.logger.debug(
-            "Formatting the validation criteria differences table")
+        self.logger.debug("Formatting the validation criteria differences table")
         self.validation_table.set_index(self.table1["samples"], inplace=True)
         self.validation_table.rename_axis(None, axis="index", inplace=True)
 
         self.validation_table.columns = pd.MultiIndex.from_tuples(
             self.validation_table.columns, names=["Column", "Table"])
 
-        self.logger.debug(
-            "Writing the validation criteria differences table out to a TSV file")
+        self.logger.debug("Writing the validation criteria differences table out to a TSV file")
         self.validation_table.to_csv(
             self.output_prefix + "_validation_criteria_differences.tsv", sep="\t")
 
