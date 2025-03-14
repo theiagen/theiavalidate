@@ -565,11 +565,7 @@ class Validator:
 
                             self.logger.debug("VALIDATE:Rows that passed this round of validation will be blank AT LEAST ONE of the columns the output table.")                            
                             self.logger.debug("VALIDATE:Here is the current state of failing_rows before updating:\n{}".format(failing_rows))
-                            # self.logger.debug("VALIDATE:Table1:\n{}".format(self.validation_table[(column.name, self.table1_name)].replace(r'^\s*$', np.nan, regex=True).notna() ))
-                            # self.logger.debug("VALIDATE:Table2:\n{}".format(self.validation_table[(column.name, self.table2_name)].replace(r'^\s*$', np.nan, regex=True).notna()))
-                            # self.logger.debug("VALIDATE:Table1:\n{}".format(self.validation_table[(column.name, self.table1_name)].replace(r'^\s*$', np.nan, regex=True)))
-                            # self.logger.debug("VALIDATE:Table1:\n{}".format(self.validation_table[(column.name, self.table1_name)].replace(r'^\s*$', np.nan, regex=True)))
-
+                           
                             failing_rows &= (self.validation_table[(column.name, self.table1_name)].replace(r'^\s*$', np.nan, regex=True).notna() 
                                             | self.validation_table[(column.name, self.table2_name)].replace(r'^\s*$', np.nan, regex=True).notna())
                             self.logger.debug("VALIDATE:Here is the current state of failing_rows AFTER updating:\n{}".format(failing_rows))                                                      
