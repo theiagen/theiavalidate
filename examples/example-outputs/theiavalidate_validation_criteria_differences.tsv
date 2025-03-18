@@ -1,7 +1,7 @@
 Column	assembly_length	assembly_length	gambit_predicted_taxon	gambit_predicted_taxon	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes	busco_results	busco_results
 Table	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv
-sample01	4783605.0	4783610.0					C:96.5%[S:96.3%,D:0.2%],F:1.5%,M:2.0%,n:402	C:96.5%[S:96.3%,D:0.2%],F:1.5%,M:2.0%,n:402
-sample02	5226301.0	5274928.0			sat2	blaCTX-M-27	C:61.4%[S:61.4%,D:0.0%],F:25.6%,M:13.0%,n:402	C:61.2%[S:61.1%,D:0.1%],F:25.3%,M:13.3%,n:402
-sample03			Shigella	Shigella sonnei	NULL	glpT_E448K, gyrA_D87G, gyrA_S83L, sat2	C:52.9%[S:52.7%,D:0.2%],F:29.9%,M:17.2%,n:402	C:50.9%[S:52.7%,D:0.2%],F:29.9%,M:19.2%,n:402
-sample04							C:52.7%[S:51.5%,D:1.2%],F:20.9%,M:26.4%,n:402	C:51.7%[S:51.5%,D:1.2%],F:21.9%,M:26.4%,n:402
-sample05	5039.0	5439.0						
+sample01								
+sample02					sat2	blaCTX-M-27		
+sample03	4719410.0	4987603.0	Shigella	Shigella sonnei	NULL	glpT_E448K, gyrA_D87G, gyrA_S83L, sat2		
+sample04	6674526.0							
+sample05							C:94.0%[S:93.8%,D:0.2%],F:4.0%,M:2.0%,n:402	C:94.0%[S:94.0%],F:3.0%,M:1.0%,n:402

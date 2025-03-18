@@ -577,8 +577,8 @@ class Validator:
                     # only write out columns that fail validation criteria
                     if number_of_differences > 0 and top_level == True:
                         self.logger.debug("VALIDATE: Some rows failed both rounds of validation, so we will write them to the table")
-                        self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(~failing_rows)
-                        self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(~failing_rows)
+                        self.validation_table[(column.name, self.table1_name)] = self.table1[column.name].where(failing_rows)
+                        self.validation_table[(column.name, self.table2_name)] = self.table2[column.name].where(failing_rows)
 
                     self.logger.debug("VALIDATE:Returning '{}' and the number of differences ({})".format(validation_criteria, number_of_differences))
                     return (validation_criteria, number_of_differences)
