@@ -331,6 +331,27 @@ class Validator:
             with open(output_path, "w") as out:
                 out.write(diff)
 
+    def calculate_percent_difference(self, x1, x2):
+        """Does the math part of percent difference
+
+        Args:
+            x1 (pd.Series): the series of numbers from a cell from table1
+            x2 (pd.Series): the series of numbers from a cell from table2
+        
+        Returns:
+            Array: an array with the percent difference calculations for the two cells
+        """
+        diffs = []
+        if len(x1) == len(x2):
+            for x, y in zip(x1, x2):
+                if x != 0 and y != 0:
+                    diffs.append(np.abs(x - y) / np.mean([x, y]))
+                else:
+                    diffs.append(0)
+            return diffs
+        else:
+            return [np.nan]
+        
     def percent_difference(self, value1, value2, delimiter, threshold):
         """This function calculates the percent difference between two values
         
@@ -360,7 +381,7 @@ class Validator:
 
         self.logger.debug("PERCENT_DIFFERENCE:Now calculating the percent differences between {} in table1 and table2".format(value1.name))
        
-        math_differences = value1_numbers.combine(value2_numbers, lambda x1, x2: (np.absolute(np.array(x2) - np.array(x1)) / ((np.array(x2) + np.array(x1)) / 2)) if len(x1) == len(x2) else [np.nan])
+        math_differences = value1_numbers.combine(value2_numbers, lambda x1, x2: (self.calculate_percent_difference(x1, x2)))
         self.logger.debug("PERCENT_DIFFERENCE:The following is a pd.Series with the results of the mathmatical comparison [ |x-y|/((x+y)/2) ]:\n{}".format(math_differences))
        
         acceptable_differences = math_differences.apply(lambda x: all(diff <= threshold if not np.isnan(diff) else False for diff in x ))
