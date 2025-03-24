@@ -1,4 +1,4 @@
-ARG THEIAVALIDATE_VER="1.0.0"
+ARG THEIAVALIDATE_VER="1.0.1"
 
 FROM google/cloud-sdk:455.0.0-slim 
 
