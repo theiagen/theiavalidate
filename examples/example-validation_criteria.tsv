@@ -1,5 +1,6 @@
-column	criteria
-assembly_length	0.01
-gambit_predicted_taxon	EXACT
-amrfinderplus_amr_core_genes	SET
-extra_column	IGNORE
+column	criteria	delimiter
+assembly_length	0.01,500	,
+gambit_predicted_taxon	EXACT	
+amrfinderplus_amr_core_genes	SET	
+extra_column	IGNORE	
+busco_results	SET,2	:%[,CSDFMn]

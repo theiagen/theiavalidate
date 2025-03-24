@@ -1,3 +1,5 @@
-__VERSION__ = "v0.1.0"
+__VERSION__ = "v1.0.0"
 
-import os, sys; sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
