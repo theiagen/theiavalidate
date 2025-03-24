@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/bash
 
 # to generate the files in the example-outputs, please run this command:
 
