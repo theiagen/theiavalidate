@@ -147,24 +147,28 @@ class Validator:
         """
         This function counts the number of populated cells in each table and adds those counts to a summary table
         """
-        self.logger.debug(
-            "Counting the number of populated cells in each table")
+        self.logger.debug("Counting the number of populated cells in each table")
         table1_populated_rows = pd.DataFrame(self.table1.count(), columns=[
                                              "Number of samples populated in {}".format(self.table1_name)])
         table2_populated_rows = pd.DataFrame(self.table2.count(), columns=[
                                              "Number of samples populated in {}".format(self.table2_name)])
 
         # remove the sample name rows from the summary_output table (should be identical, no point checking here)
-        self.logger.debug(
-            "Removing the sample name row from the tables so we don't compare them")
+        self.logger.debug("Removing the sample name row from the tables so we don't compare them")
         table1_populated_rows.drop("samples", axis=0, inplace=True)
         table2_populated_rows.drop("samples", axis=0, inplace=True)
-
-        # create a summary table
-        self.logger.debug(
-            "Creating the summary table with the number of populated cells")
-        self.summary_output = pd.concat(
+        
+        populated_rows = pd.concat(
             [table1_populated_rows, table2_populated_rows], join="outer", axis=1)
+                
+        # Add comparison results to a new column in the populated_rows DataFrame
+        populated_rows["Comparison"] = populated_rows.apply(
+            lambda x: f"{x.iloc[0]}/{x.iloc[1]}" if x.iloc[0] == x.iloc[1] else f"Discordant: {x.iloc[0]}/{x.iloc[1]}",
+            axis=1
+        )
+
+        self.logger.debug("Creating the summary table with the number of populated cells")                
+        self.summary_output = populated_rows["Comparison"].to_frame(name="Number of populated cells (table1/table2)")
 
     def determine_file_columns(self):
         """
@@ -718,7 +722,7 @@ class Validator:
         self.validation_table = pd.DataFrame()
 
         self.logger.debug("Performing the validation checks")
-        self.summary_output[["Validation Criteria", "Number of samples failing the validation criteria"]] = pd.DataFrame(
+        self.summary_output[["Validation Criteria", "Number of samples requiring further investigation"]] = pd.DataFrame(
             self.validation_criteria.apply(lambda x: self.validate(x.astype(object)), result_type="expand")).transpose()
         # format the validation criteria differences table
         self.logger.debug("Formatting the validation criteria differences table")
@@ -737,28 +741,36 @@ class Validator:
         """
         self.logger.debug("Turning the summary dataframe into a HTML report")
         pd.set_option('display.max_colwidth', None)
-
+        self.summary_output = self.summary_output.reset_index()
+        self.summary_output.rename({"index": ""}, axis=1, inplace=True)
+        print(len(self.summary_output.columns))
         # make pretty html table
         html_table_light_grey = build_table(self.summary_output,
-                                            'grey_light',
-                                            index=True,
-                                            text_align='center',
-                                            # conditions={
-                                            #   'Number of differences (exact match)': {
-                                            #     'min': 1,
-                                            #     'max': 0,
-                                            #     'min_color': 'black',
-                                            #     'max_color': 'red'
-                                            #   }
-                                            # }
-                                            )
+                            'grey_light',
+                            text_align='center',
+                            width_dict=['auto', 'auto', 'auto', 'auto', '100px', '500px'],
+                            conditions={
+                              'Number of samples requiring further investigation': {
+                                'min': 1,
+                                'max': 0,
+                                'min_color': 'green',
+                                'max_color': 'red'
+                              }
+                            }
+                            )
 
         # save to html file
         with open(self.output_prefix + "_summary.html", 'w') as outfile:
             outfile.write("<p>Validation analysis performed on " +
                           str(date.today().isoformat()) + ".</p>")
+                        
+            # modify the HTML table to bold the first column
+            html_table_light_grey = html_table_light_grey.replace(
+            '<tr>      <td style = "', '<tr>      <td style = "font-weight: bold;'
+            )
+            
             outfile.write(html_table_light_grey)
-
+            
             if (self.validation_criteria is not None):
                 outfile.write("<p>Validation Criteria:</p>")
                 outfile.write("<ul>")
@@ -784,6 +796,7 @@ class Validator:
         # convert to pdf
         options = {
             'page-size': 'Letter',
+            'orientation': 'landscape',
             'title': self.table1_name + ' vs. ' + self.table2_name,
             'margin-top': '0.25in',
             'margin-right': '0.25in',
@@ -836,7 +849,9 @@ class Validator:
         if (self.validation_criteria is not None):
             self.logger.info("Performing validation criteria checks")
             self.run_validation_checks()
-
+        
+        self.summary_output["Notes"] = ""
+        
         self.logger.info("Creating a PDF report")
         self.make_pdf_report()
 
