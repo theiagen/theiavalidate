@@ -580,7 +580,7 @@ class Validator:
                             
                             self.logger.debug("VALIDATE:This is the current content of failing_rows:\n{}".format(failing_rows))
                             self.logger.debug("VALIDATE:Setting the failing_rows pd.Series to be all True since all passed")
-                            failing_rows = pd.Series(True, index=self.table1.index)
+                            failing_rows = pd.Series(False, index=self.table1.index)
                             self.logger.debug("VALIDATE:The current value of failing_rows is now:\n{}".format(failing_rows))
 
                             break
