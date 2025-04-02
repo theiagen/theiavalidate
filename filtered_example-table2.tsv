@@ -1,6 +1,0 @@
-samples	busco_results	assembly_length	gambit_predicted_taxon	amrfinderplus_amr_core_genes	extra_column
-sample01	C:96.5%[S:96.3%,D:0.2%],F:1.5%,M:2.0%,n:402	4783610.0	Salmonella enterica	aph(3'')-Ib,aph(6)-Id,tet(A)	extra_value
-sample02	C:61.2%[S:61.1%,D:0.1%],F:25.3%,M:13.3%,n:402	5274928.0	Shigella sonnei	glpT_E448K,gyrA_D87G,gyrA_S83L,parC_S80I,blaCTX-M-27,dfrA1	
-sample03	C:50.9%[S:52.7%,D:0.2%],F:29.9%,M:19.2%,n:402	4987603.0	Shigella sonnei	glpT_E448K,gyrA_D87G,gyrA_S83L,sat2	
-sample04	C:51.7%[S:51.5%,D:1.2%],F:21.9%,M:26.4%,n:402		Pseudomonas aeruginosa	parC_S87L,gyrA_T83I,sul1,aadA7	extra_value
-sample05	C:94.0%[S:94.0%],F:3.0%,M:1.0%,n:402	5439.0	Staphylococcus aureus	parC_S80Y,tet(38),fosB,gyrA_S84L,mecA,mecR1,murA_G257D	
