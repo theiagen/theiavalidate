@@ -726,15 +726,19 @@ class Validator:
             self.validation_criteria.apply(lambda x: self.validate(x.astype(object)), result_type="expand")).transpose()
         # format the validation criteria differences table
         self.logger.debug("Formatting the validation criteria differences table")
-        self.validation_table.set_index(self.table1["samples"], inplace=True)
-        self.validation_table.rename_axis(None, axis="index", inplace=True)
 
-        self.validation_table.columns = pd.MultiIndex.from_tuples(
-            self.validation_table.columns, names=["Column", "Table"])
+        if len(self.validation_table) == len(self.table1):
+            self.validation_table.set_index(self.table1["samples"], inplace=True)
+            self.validation_table.rename_axis(None, axis="index", inplace=True)
 
-        self.logger.debug("Writing the validation criteria differences table out to a TSV file")
-        self.validation_table.to_csv(
-            self.output_prefix + "_validation_criteria_differences.tsv", sep="\t")
+            self.validation_table.columns = pd.MultiIndex.from_tuples(
+                self.validation_table.columns, names=["Column", "Table"])
+
+            self.logger.debug("Writing the validation criteria differences table out to a TSV file")
+            self.validation_table.to_csv(
+                self.output_prefix + "_validation_criteria_differences.tsv", sep="\t")
+        else:
+            self.logger.debug("Skipping writing out the validation criteria differences table because there are no differences.")
 
     def make_pdf_report(self):
         """This function turns the summary DataFrame into a pdf report
