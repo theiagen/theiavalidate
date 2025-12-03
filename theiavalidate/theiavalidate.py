@@ -43,8 +43,8 @@ def main():
     options = parser.parse_args()
 
     # convert string inputs to a list
-    if isinstance(parser.na_values, str):
-        parser.na_values=parser.na_values.split(',')
+    if isinstance(options.na_values, str):
+        options.na_values=options.na_values.split(',')
 
     validate = Validator(options)
     validate.compare()
