@@ -44,7 +44,7 @@ def main():
 
     # convert string inputs to a list
     if isinstance(parser.na_values, str):
-        parser.na_values=na_values.split(',')
+        parser.na_values=parser.na_values.split(',')
 
     validate = Validator(options)
     validate.compare()
