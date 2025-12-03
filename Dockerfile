@@ -18,11 +18,8 @@ RUN wget https://github.com/theiagen/theiavalidate/archive/refs/tags/v${THEIAVAL
     && mv theiavalidate-${THEIAVALIDATE_VER} /theiavalidate \
     && rm v${THEIAVALIDATE_VER}.tar.gz
 
-RUN pip3 install -r /theiavalidate/requirements.txt \
-    && chmod +x /theiavalidate/theiavalidate/*.py
+RUN pip3 install /theiavalidate/
 
-ENV PATH="/theiavalidate/theiavalidate:${PATH}"
-
-RUN theiavalidate.py -h
+RUN theiavalidate -h
 
 WORKDIR /data

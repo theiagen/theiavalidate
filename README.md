@@ -7,15 +7,15 @@ Note: this repository is undergoing active development. Check back for updates.
 We recommend using our Docker image to run this tool as all dependencies are installed for your convenience.
 
 ```bash
-docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:1.1.2
+docker pull us-docker.pkg.dev/general-theiagen/theiagen/theiavalidate:1.1.3
 ```
 
 ## Dependencies
 
-To use this tool on the command line, please ensure all dependencies are installed. Feel free to use the requirements.txt file within this repository as demonstrated by the following command:
+To use this tool on the command line, please ensure all dependencies are installed. Feel free to use the pyproject.toml file within this repository as demonstrated by executing the following command within the repo directory:
 
 ```
-pip3 install -r requirements.txt
+pip3 install .
 ```
 
 To generate the PDF report, please ensure the following is installed as well:
@@ -51,7 +51,7 @@ optional arguments:
           the output file name prefix
           do not include any spaces
   -n, --na_values
-          the values that should be considered NA
+          a comma-delimited string of values that should be considered NA
           default values = ['-1.#IND', '1.#QNAN', '1.#IND', '-1.#QNAN', '#N/A N/A', '#N/A', 'N/A', 'n/a', '', '#NA', 'NULL', 'null', 'NaN', '-NaN', 'nan', '-nan', 'None']
   --verbose
           increase stdout verbosity
