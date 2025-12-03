@@ -33,14 +33,18 @@ def main():
     parser.add_argument("-o", "--output_prefix",
                         help="the output file name prefix\ndo not include any spaces", default="theiavalidate", metavar="\b")
     parser.add_argument("-n", "--na_values",
-                        help=f"the values that should be considered NA\ndefault values = {DEFAULT_NA_VALUES}",
-                        default=DEFAULT_NA_VALUES, metavar="\b", type=int)
+                        help=f"a comma-delimited string of values that should be considered NA\ndefault values = {DEFAULT_NA_VALUES}",
+                        default=DEFAULT_NA_VALUES, metavar="\b")
     parser.add_argument("--verbose",
                         help="increase stdout verbosity", action="store_true", default=False)
     parser.add_argument("--debug",
                         help="increase stdout verbosity to debug; overwrites --verbose", action="store_true", default=False)
 
     options = parser.parse_args()
+
+    # convert string inputs to a list
+    if isinstance(parser.na_values, str):
+        parser.na_values=na_values.split(',')
 
     validate = Validator(options)
     validate.compare()
