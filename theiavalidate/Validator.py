@@ -747,7 +747,7 @@ class Validator:
         pd.set_option('display.max_colwidth', None)
         self.summary_output = self.summary_output.reset_index()
         self.summary_output.rename({"index": ""}, axis=1, inplace=True)
-        print(len(self.summary_output.columns))
+       
         # make pretty html table
         html_table_light_grey = build_table(self.summary_output,
                             'grey_light',
