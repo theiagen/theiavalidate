@@ -822,6 +822,11 @@ class Validator:
         self.table1 = self.convert_table_to_dataframe(self.table1_name)
         self.table2 = self.convert_table_to_dataframe(self.table2_name)
 
+        self.logger.debug("Checking if the tables contain the same samples")       
+        if not self.table1.samples.equals(self.table2.samples):
+            self.logger.warning("The samples in the two tables do not match")
+            raise Exception("The samples in the two tables do not match; comparison cannot be performed. Aborting process.")
+
         self.logger.debug("Grabbing the basename of the input files")
         self.table1_name = os.path.basename(self.table1_name)
         self.table2_name = os.path.basename(self.table2_name)
