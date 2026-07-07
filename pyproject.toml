@@ -1,0 +1,43 @@
+[project]
+name = "theiavalidate"
+version = "2.0.0.dev0"
+description = "Config-driven comparison and validation of tabular pipeline outputs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Theiagen" }]
+dependencies = [
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "pandas>=1.4.2",
+    "numpy>=1.22.4",
+    "fsspec>=2024.0",  # uniform local/remote file access for file_* comparisons
+    "rich-click>=1.7",  # the CLI entry point
+]
+
+[project.optional-dependencies]
+# Optional summarizer layer (later version); keep the core install anthropic-free.
+llm = ["anthropic>=0.40"]
+# PDF reporting (HTML needs nothing extra); PDF also needs the wkhtmltopdf binary.
+report = ["pdfkit>=1.0.0"]
+# Cloud backends for file_* comparisons. fsspec (core) reads local files out of
+# the box; these add gs:// and s3:// support.
+cloud = ["gcsfs>=2024.0", "s3fs>=2024.0"]
+
+[project.scripts]
+theiavalidate = "theiavalidate.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/theiavalidate"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
