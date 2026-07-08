@@ -48,13 +48,21 @@ def _resolve(spec: ColumnSpec, columns) -> Optional[str]:
 
 
 def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alignment:
-    key = config.key
-    for label, df in (("left", left_df), ("right", right_df)):
+    left_key, right_key = config.left_key, config.right_key
+    if left_key is None or right_key is None:
+        raise ValueError(
+            "no join key configured; set `key` (or `key1`+`key2`) in the config, "
+            "or pass --key (or --key1/--key2) on the CLI"
+        )
+    for label, df, key in (("left", left_df, left_key), ("right", right_df, right_key)):
         if key not in df.columns:
             raise ValueError(f"key column {key!r} not found in {label} table")
 
-    left = left_df.set_index(key)
-    right = right_df.set_index(key)
+    # Index on each table's own key, then give both indexes one canonical name so
+    # the join and the reported key line up even when the source names differ.
+    key = left_key
+    left = left_df.set_index(left_key).rename_axis(key)
+    right = right_df.set_index(right_key).rename_axis(key)
     for label, df in (("left", left), ("right", right)):
         if df.index.has_duplicates:
             dups = sorted(set(df.index[df.index.duplicated()]))
