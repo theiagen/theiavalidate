@@ -1,7 +1,7 @@
 """Render a ComparisonResult to a self-contained HTML report, and optionally PDF.
 
 HTML is built with pandas + stdlib only (no extra dependencies), so it always
-works. PDF conversion uses `pdfkit` (the optional `report` extra) and needs the
+works. PDF conversion uses `pdfkit` (a core dependency) and needs the
 `wkhtmltopdf` system binary; it converts the same HTML document.
 
 The report has four parts: a pass/fail banner, a per-column census
