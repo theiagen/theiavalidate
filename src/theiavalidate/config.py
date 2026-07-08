@@ -64,6 +64,20 @@ def _adapter_for(python_type) -> TypeAdapter:
 # from the previous codebase.
 DEFAULT_NA_VALUES = ["", "NA", "N/A", "n/a", "NaN", "nan", "None", "null", "NULL"]
 
+def _check_key_pair(
+    key: Optional[str], key1: Optional[str], key2: Optional[str]
+) -> None:
+    """Enforce the key mutual-exclusion rules (shared by config + CLI override).
+
+    A single shared `key` and the per-table `key1`/`key2` pair are mutually
+    exclusive; the pair must be given together. An entirely unset key is allowed.
+    """
+    if key is not None and (key1 is not None or key2 is not None):
+        raise ValueError("set either `key` or `key1`+`key2`, not both")
+    if (key1 is None) != (key2 is None):
+        raise ValueError("`key1` and `key2` must be set together")
+
+
 # Regex for parsing type strings like `set[str]`, `list[float]`, `str`.
 _TYPE_RE = re.compile(
     r"^(?:(?P<container>set|list)\[(?P<base_type>\w+)\]|(?P<scalar>\w+))$"
@@ -287,13 +301,59 @@ class ColumnSpec(BaseModel):
 
 
 class Config(BaseModel):
-    """A full comparison config: the join key plus per-column rules."""
+    """A full comparison config: the join key plus per-column rules.
+
+    The join key can be given two ways:
+      - `key` — a single column name shared by both tables (the common case).
+      - `key1` + `key2` — a per-table key, for when the two tables name their
+        key column differently (e.g. Terra exports name it `entity:<table>_id`,
+        which differs per table). Both must be given together.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    key: str
+    key: Optional[str] = None
+    key1: Optional[str] = None
+    key2: Optional[str] = None
     na_values: list[str] = DEFAULT_NA_VALUES
     columns: dict[str, ColumnSpec]
+
+    @model_validator(mode="after")
+    def _key_rules(self) -> "Config":
+        # Note: an entirely unset key is allowed here — a preset may ship without
+        # one and have it supplied later via `with_keys` (e.g. a CLI override).
+        # The key must resolve by the time the tables are aligned.
+        _check_key_pair(self.key, self.key1, self.key2)
+        return self
+
+    @property
+    def left_key(self) -> Optional[str]:
+        """Key column name in the left (first) table, if resolved."""
+        return self.key1 if self.key1 is not None else self.key
+
+    @property
+    def right_key(self) -> Optional[str]:
+        """Key column name in the right (second) table, if resolved."""
+        return self.key2 if self.key2 is not None else self.key
+
+    def with_keys(
+        self,
+        *,
+        key: Optional[str] = None,
+        key1: Optional[str] = None,
+        key2: Optional[str] = None,
+    ) -> "Config":
+        """Return a copy with the join key overridden (e.g. from the CLI).
+
+        Any override fully replaces the config's key. A single `key` and the
+        `key1`/`key2` pair remain mutually exclusive. No override returns self.
+        """
+        if key is None and key1 is None and key2 is None:
+            return self
+        _check_key_pair(key, key1, key2)
+        if key is not None:
+            return self.model_copy(update={"key": key, "key1": None, "key2": None})
+        return self.model_copy(update={"key": None, "key1": key1, "key2": key2})
 
     @model_validator(mode="before")
     @classmethod
