@@ -50,6 +50,7 @@ def _resolve(spec: ColumnSpec, columns) -> Optional[str]:
 def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alignment:
     left_key, right_key = config.left_key, config.right_key
     if left_key is None or right_key is None:
+        # extra check here for safety
         raise ValueError(
             "no join key configured; set `key` (or `key1`+`key2`) in the config, "
             "or pass --key (or --key1/--key2) on the CLI"

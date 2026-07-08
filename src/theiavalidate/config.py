@@ -64,6 +64,7 @@ def _adapter_for(python_type) -> TypeAdapter:
 # from the previous codebase.
 DEFAULT_NA_VALUES = ["", "NA", "N/A", "n/a", "NaN", "nan", "None", "null", "NULL"]
 
+
 def _check_key_pair(
     key: Optional[str], key1: Optional[str], key2: Optional[str]
 ) -> None:
@@ -306,8 +307,6 @@ class Config(BaseModel):
     The join key can be given two ways:
       - `key` — a single column name shared by both tables (the common case).
       - `key1` + `key2` — a per-table key, for when the two tables name their
-        key column differently (e.g. Terra exports name it `entity:<table>_id`,
-        which differs per table). Both must be given together.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -320,9 +319,7 @@ class Config(BaseModel):
 
     @model_validator(mode="after")
     def _key_rules(self) -> "Config":
-        # Note: an entirely unset key is allowed here — a preset may ship without
-        # one and have it supplied later via `with_keys` (e.g. a CLI override).
-        # The key must resolve by the time the tables are aligned.
+        # Note: an entirely unset key is allowed here, presets won't have one
         _check_key_pair(self.key, self.key1, self.key2)
         return self
 
