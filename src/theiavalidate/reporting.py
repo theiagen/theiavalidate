@@ -16,6 +16,8 @@ from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pdfkit
+
 if TYPE_CHECKING:
     from theiavalidate.results import ComparisonResult
 
@@ -104,9 +106,13 @@ def _differences_section(result: "ComparisonResult") -> str:
 
 def _exclusives_section(result: "ComparisonResult") -> str:
     left, right = result.left_name, result.right_name
-    missing = ", ".join(
-        f"{_esc(col)} ({_esc(where)})" for col, where in result.missing_columns.items()
-    ) or "<span class='muted'>none</span>"
+    missing = (
+        ", ".join(
+            f"{_esc(col)} ({_esc(where)})"
+            for col, where in result.missing_columns.items()
+        )
+        or "<span class='muted'>none</span>"
+    )
     return (
         "<h2>What didn't line up</h2>"
         f"<p><b>Configured columns missing:</b> {missing}</p>"
@@ -146,13 +152,6 @@ def _esc(text: str) -> str:
 
 
 def _write_pdf(document: str, path: Path) -> Path:
-    try:
-        import pdfkit
-    except ModuleNotFoundError as err:
-        raise ModuleNotFoundError(
-            "PDF output needs the `report` extra: pip install 'theiavalidate[report]' "
-            "(and the wkhtmltopdf system binary)."
-        ) from err
 
     options = {
         "page-size": "Letter",

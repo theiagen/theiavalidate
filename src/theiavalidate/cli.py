@@ -1,4 +1,4 @@
-"""Command-line entry point.
+"""Command-line entry point for theiavalidate.
 
 theiavalidate validate TABLE1 TABLE2 --config validate.yaml
 theiavalidate validate TABLE1 TABLE2 --preset theiaprok -- to-come
@@ -27,10 +27,10 @@ def _read_table(path: Path) -> pd.DataFrame:
 def _available_presets() -> list[str]:
     try:
         preset_dir = resources.files("theiavalidate") / "presets"
+        presets = [p for p in preset_dir.iterdir() if p.name.endswith(".yaml")]
         return sorted(
-            p.name[: -len(".yaml")]
-            for p in preset_dir.iterdir()
-            if p.name.endswith(".yaml")
+            preset.name[: -len(".yaml")]
+            for preset in presets
         )
     except (FileNotFoundError, NotADirectoryError, ModuleNotFoundError):
         return []
@@ -39,19 +39,19 @@ def _available_presets() -> list[str]:
 def _load_config(config_path: Path | None, preset: str | None) -> Config:
     if config_path is not None:
         return Config.from_yaml(str(config_path))
-    candidate = resources.files("theiavalidate") / "presets" / f"{preset}.yaml"
-    if not candidate.is_file():
+    preset_candidate = resources.files("theiavalidate") / "presets" / f"{preset}.yaml"
+    if not preset_candidate.is_file():
         available = _available_presets()
         raise click.UsageError(
             f"unknown preset {preset!r}; available: {', '.join(available) or 'none bundled yet'}"
         )
-    return Config.from_yaml(str(candidate))
+    return Config.from_yaml(str(preset_candidate))
 
 
 @click.group()
 @click.version_option(package_name="theiavalidate")
 def main() -> None:
-    """TheiaValidate — config-driven comparison of tabular pipeline outputs."""
+    """TheiaValidate ~~ config-driven comparison of tabular pipeline outputs."""
 
 
 @main.command()

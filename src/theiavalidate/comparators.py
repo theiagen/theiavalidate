@@ -105,7 +105,7 @@ COMPARATORS: dict[str, Callable] = {
     "file_set": _file_set,
 }
 
-# Runs at import: a method in one but not the other fails loudly here.
+# Runs at import to validate methods
 assert set(COMPARATORS) == KNOWN_METHODS, (
     f"comparator registry {sorted(COMPARATORS)} != KNOWN_METHODS {sorted(KNOWN_METHODS)}"
 )
@@ -114,7 +114,7 @@ assert set(COMPARATORS) == KNOWN_METHODS, (
 def check_compatible(method: str, type_spec: TypeSpec, column: str) -> None:
     """Reject method×type combinations that make no sense"""
     if method in {"exact", "ignore"}:
-        return  # exact works on any type 
+        return  # exact works on any type
     if type_spec.is_container:
         raise ValueError(
             f"column {column!r}: method {method!r} needs a scalar type, got {type_spec}"
@@ -149,7 +149,7 @@ def _format_diffs(left, right, idx, type_spec: TypeSpec):
             if isinstance(left_val, set) and isinstance(right_val, set):
                 left_disp[key] = ", ".join(sorted(map(str, left_val - right_val)))
                 right_disp[key] = ", ".join(sorted(map(str, right_val - left_val)))
-            else:  
+            else:
                 left_disp[key], right_disp[key] = left_val, right_val
         return pd.Series(left_disp, dtype=object), pd.Series(right_disp, dtype=object)
     return left.loc[idx], right.loc[idx]

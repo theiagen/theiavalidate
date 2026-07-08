@@ -1,14 +1,10 @@
 """Orchestrate a full comparison: align -> prepare -> compare -> ComparisonResult.
 
 `Validator(config).compare(left_df, right_df)` is the class form; `compare_tables`
-is the one-call shortcut. Both take two DataFrames (already loaded — the CLI
-handles reading TSVs) and return a `ComparisonResult`.
+is the one-call shortcut.
 
 Per-column pipeline for each column that resolved in both tables:
     mark na_values -> parse -> coerce -> compare
-The na step happens here (not in parsing) because the null sentinels live on the
-Config (global) and ColumnSpec (per-column), and are applied whole-cell, matching
-pandas `read_csv(na_values=...)`.
 """
 
 from __future__ import annotations
@@ -59,6 +55,7 @@ class Validator:
             missing_columns=aligned.missing_columns,
         )
 
+    # Have it live here so we can use it in `align` as well
     def _na_values(self, spec: ColumnSpec) -> set[str]:
         """Global na_values plus this column's optional extensions."""
         values = set(self.config.na_values)

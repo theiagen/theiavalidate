@@ -1,11 +1,10 @@
 """Line the two tables up before comparison.
 
-Order shouldn't matter — match on the key, not row position. `align` indexes
-both tables by the key, resolves each configured column to its source name in
-each table (via `mappings`), and reports what didn't line up: rows present in
-only one table, and raw columns present in only one table. Configured columns
-that can't be found are recorded in `missing_columns` for the validator to
-surface rather than silently dropping.
+
+Order shouldn't matter as we match on the provided key.
+The tables get aligned on the key, which
+then resolved each configured column to it's source name.
+Columns not found are recorded in `missing_columns`.
 """
 
 from __future__ import annotations
@@ -39,7 +38,7 @@ class Alignment:
 
 
 def _resolve(spec: ColumnSpec, columns) -> Optional[str]:
-    """The source name for a configured column in a table: canonical, else a mapping."""
+    """The source name for a configured column in a table as written else a mapping."""
     if spec.name in columns:
         return spec.name
     for alias in spec.mappings:
@@ -88,8 +87,7 @@ def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alig
             left_out[name] = left.loc[shared, lname]
             right_out[name] = right.loc[shared, rname]
 
-    # Raw column shape difference — columns unique to one table that weren't used
-    # to resolve a compared pair.
+    # Raw column shape difference
     left_cols, right_cols = set(left.columns), set(right.columns)
     columns_only_left = sorted((left_cols - right_cols) - used_left)
     columns_only_right = sorted((right_cols - left_cols) - used_right)
