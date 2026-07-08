@@ -11,6 +11,8 @@ from typing import Optional
 
 import pandas as pd
 
+from theiavalidate import reporting
+
 
 @dataclass
 class ColumnResult:
@@ -162,7 +164,6 @@ class ComparisonResult:
             if not diffs.empty:
                 diffs.to_csv(out / f"{prefix}_differences.tsv", sep="\t")
         if html or pdf:
-            from theiavalidate import reporting  # lazy; built in a later phase
-
             reporting.render(self, out, prefix=prefix, html=html, pdf=pdf)
+
         return out
