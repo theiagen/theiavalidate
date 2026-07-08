@@ -3,10 +3,6 @@
 HTML is built with pandas + stdlib only (no extra dependencies), so it always
 works. PDF conversion uses `pdfkit` (a core dependency) and needs the
 `wkhtmltopdf` system binary; it converts the same HTML document.
-
-The report has four parts: a pass/fail banner, a per-column census
-(`summary_df`), the per-comparison differences (`differences_df`, with percent
-diff where available), and the exclusives that didn't line up across the tables.
 """
 
 from __future__ import annotations

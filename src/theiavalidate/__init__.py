@@ -1,4 +1,4 @@
-"""TheiaValidate v2 — a layered, config-driven table comparison library."""
+"""TheiaValidate v2 library exports"""
 
 from theiavalidate.config import ColumnSpec, Config, MethodSpec, ParseSpec, TypeSpec
 from theiavalidate.results import ColumnResult, ComparisonResult

@@ -128,3 +128,6 @@ For this first round I focused on taking the methods that existed in the v1 vers
 For now the expected input is a TSV file, but with bioforklift we could pull the table down directly. I think that's an easy addition. Functionality is more important right now. 
 
 But generally, what other methods do we want to add? Is there nuance that isn't being capture here. I mostly transitioned known methods from v1 to the new format, but there are certainly more to add.
+
+
+Please review carefully, my eyes burn.

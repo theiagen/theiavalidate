@@ -67,9 +67,7 @@ def parse_series(series: pd.Series, spec: Optional[ParseSpec]) -> pd.Series:
 def coerce_series(series: pd.Series, typespec: TypeSpec, *, column: str) -> pd.Series:
     """Coerce each parsed cell to the TypeSpec, preserving nulls.
 
-    `column` is the canonical config name, required so a coercion failure always
-    points at a column the user can find in their config (never the raw pandas
-    label, which may be a mapped source name).
+    `column` is the configured config name
 
     Wraps pydantic's ValidationError with the offending column/key/value so a
     bad cell points at where it lives rather than surfacing a raw pydantic error.

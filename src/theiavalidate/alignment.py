@@ -59,8 +59,7 @@ def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alig
         if key not in df.columns:
             raise ValueError(f"key column {key!r} not found in {label} table")
 
-    # Index on each table's own key, then give both indexes one canonical name so
-    # the join and the reported key line up even when the source names differ.
+    # Line up the key indexes on both tables.
     key = left_key
     left = left_df.set_index(left_key).rename_axis(key)
     right = right_df.set_index(right_key).rename_axis(key)
@@ -69,7 +68,7 @@ def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alig
             dups = sorted(set(df.index[df.index.duplicated()]))
             raise ValueError(f"{label} table has duplicate keys for {key!r}: {dups}")
 
-    # Rows: match on key; report the exclusives.
+    # Rows match on the key, so we can compare them directly.
     shared = left.index.intersection(right.index)
     rows_only_left = list(left.index.difference(right.index))
     rows_only_right = list(right.index.difference(left.index))
@@ -80,8 +79,8 @@ def align(left_df: pd.DataFrame, right_df: pd.DataFrame, config: Config) -> Alig
     for name, spec in config.columns.items():
         lname = _resolve(spec, left.columns)
         rname = _resolve(spec, right.columns)
-        # A name that resolved on either side is "accounted for" — keep it out of
-        # the unconfigured shape-diff report even if the pair is incomplete.
+        # A name that resolved on either side is can be considered accounted for
+        # Need to resoulve what gets consumed by left/right and what the config leaves out (mssing)
         if lname is not None:
             used_left.add(lname)
         if rname is not None:

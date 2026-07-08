@@ -158,8 +158,7 @@ def _format_diffs(left, right, idx, type_spec: TypeSpec):
 def compare_column(left: pd.Series, right: pd.Series, spec: ColumnSpec) -> ColumnResult:
     """Compare one prepared column across both tables into a ColumnResult.
 
-    `left`/`right` are already parsed and coerced (see parsing.prepare_column),
-    aligned on the same key index.
+    `left`/`right` are already parsed and coerced
     """
     for method_spec in spec.methods:
         check_compatible(method_spec.method, spec.type, spec.name)
