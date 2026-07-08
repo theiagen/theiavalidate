@@ -28,10 +28,7 @@ def _available_presets() -> list[str]:
     try:
         preset_dir = resources.files("theiavalidate") / "presets"
         presets = [p for p in preset_dir.iterdir() if p.name.endswith(".yaml")]
-        return sorted(
-            preset.name[: -len(".yaml")]
-            for preset in presets
-        )
+        return sorted(preset.name[: -len(".yaml")] for preset in presets)
     except (FileNotFoundError, NotADirectoryError, ModuleNotFoundError):
         return []
 
@@ -67,6 +64,18 @@ def main() -> None:
     "--preset", help="Name of a bundled workflow preset (alternative to --config)."
 )
 @click.option(
+    "--key",
+    help="Join key column shared by both tables (overrides the config/preset).",
+)
+@click.option(
+    "--key1",
+    help="Join key column in TABLE1 (overrides the config/preset; use with --key2).",
+)
+@click.option(
+    "--key2",
+    help="Join key column in TABLE2 (overrides the config/preset; use with --key1).",
+)
+@click.option(
     "--outdir",
     type=click.Path(file_okay=False, path_type=Path),
     default=Path("."),
@@ -85,7 +94,7 @@ def main() -> None:
 @click.option(
     "--pdf",
     is_flag=True,
-    help="Also write a PDF report (needs the `report` extra + wkhtmltopdf).",
+    help="Also write a PDF report (needs the wkhtmltopdf system binary).",
 )
 @click.option(
     "--exit-zero",
@@ -97,6 +106,9 @@ def validate(
     table2: Path,
     config_path: Path | None,
     preset: str | None,
+    key: str | None,
+    key1: str | None,
+    key2: str | None,
     outdir: Path,
     prefix: str,
     html: bool,
@@ -109,6 +121,7 @@ def validate(
 
     try:
         config = _load_config(config_path, preset)
+        config = config.with_keys(key=key, key1=key1, key2=key2)
         left = _read_table(table1)
         right = _read_table(table2)
         result = compare_tables(
@@ -121,7 +134,7 @@ def validate(
     click.echo(result.summary_df().to_string())
     click.echo(f"\nOutput written to {outdir}/")
     if result.passed:
-        click.secho("PASSED", fg="green", bold=True)
+        click.secho("PASSED, LGTM", fg="green", bold=True)
     else:
         click.secho("DIFFERENCES FOUND", fg="red", bold=True)
         if not exit_zero:
