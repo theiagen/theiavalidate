@@ -33,16 +33,61 @@ def _available_presets() -> list[str]:
         return []
 
 
-def _load_config(config_path: Path | None, preset: str | None) -> Config:
+def _criteria_source(config_path: Path | None, preset: str | None) -> tuple[Path, str]:
+    """Resolve the criteria YAML path and a workflow label (config stem / preset name).
+
+    Shared by config loading and the optional agent layer, which reads the same YAML.
+    """
     if config_path is not None:
-        return Config.from_yaml(str(config_path))
+        return config_path, config_path.stem
     preset_candidate = resources.files("theiavalidate") / "presets" / f"{preset}.yaml"
     if not preset_candidate.is_file():
         available = _available_presets()
         raise click.UsageError(
             f"unknown preset {preset!r}; available: {', '.join(available) or 'none bundled yet'}"
         )
-    return Config.from_yaml(str(preset_candidate))
+    return Path(str(preset_candidate)), preset
+
+
+def _load_config(config_path: Path | None, preset: str | None) -> Config:
+    criteria_path, _ = _criteria_source(config_path, preset)
+    return Config.from_yaml(str(criteria_path))
+
+
+_DEFAULT_QUESTION = (
+    "Summarize the differences between the two tables. For each column that differs, "
+    "say whether it looks like noise within threshold or a real regression, and flag "
+    "any rows or columns exclusive to one table."
+)
+
+
+def _run_agent(result, criteria_path: Path, workflow_name: str, ask: str | None) -> None:
+    """Run the optional LLM agent over a finished comparison and echo its answer.
+
+    Imported lazily so `validate` works without the 'llm' extra installed.
+    """
+    try:
+        from theiavalidate.agent import run_agent
+    except ImportError as err:
+        raise click.ClickException(
+            f"the --summarize/--ask agent needs the 'llm' extra: "
+            f"pip install 'theiavalidate[llm]' ({err})"
+        )
+
+    click.echo("\nRunning agent...")
+    try:
+        state = run_agent(
+            ask or _DEFAULT_QUESTION,
+            result,
+            criteria_yaml=str(criteria_path),
+            workflow_name=workflow_name,
+        )
+    except Exception as err:
+        click.secho(f"\nagent failed (skipping summary): {err}", fg="yellow")
+        return
+
+    click.secho("\n--- Agent summary ---", bold=True)
+    click.echo(state.answer or "(the agent returned no text)")
 
 
 @click.group()
@@ -101,6 +146,17 @@ def main() -> None:
     is_flag=True,
     help="Always exit 0, even when differences are found.",
 )
+@click.option(
+    "--summarize",
+    is_flag=True,
+    help="After comparing, run the optional LLM agent to summarize the differences "
+    "(needs the 'llm' extra and ANTHROPIC_API_KEY).",
+)
+@click.option(
+    "--ask",
+    help="Ask the LLM agent a specific question about the comparison (implies "
+    "--summarize).",
+)
 def validate(
     table1: Path,
     table2: Path,
@@ -114,13 +170,16 @@ def validate(
     html: bool,
     pdf: bool,
     exit_zero: bool,
+    summarize: bool,
+    ask: str | None,
 ) -> None:
     """Compare TABLE1 and TABLE2 using a config (or preset)."""
     if bool(config_path) == bool(preset):
         raise click.UsageError("provide exactly one of --config or --preset")
 
     try:
-        config = _load_config(config_path, preset)
+        criteria_path, workflow_name = _criteria_source(config_path, preset)
+        config = Config.from_yaml(str(criteria_path))
         config = config.with_keys(key=key, key1=key1, key2=key2)
         left = _read_table(table1)
         right = _read_table(table2)
@@ -133,6 +192,10 @@ def validate(
 
     click.echo(result.summary_df().to_string())
     click.echo(f"\nOutput written to {outdir}/")
+
+    if summarize or ask:
+        _run_agent(result, criteria_path, workflow_name, ask)
+
     if result.passed:
         click.secho("PASSED, LGTM", fg="green", bold=True)
     else:
