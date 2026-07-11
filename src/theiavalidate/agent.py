@@ -186,7 +186,7 @@ class Toolbox:
     def dispatch(self, name: str, tool_input: dict) -> str:
         fn = self.registry.get(name)
         if fn is None:
-            return f"unknown tool {name!r}"
+            return f"unknown tool {name}"
         return fn(tool_input or {})
 
     def initial_prompt(self, question: str) -> str:
@@ -326,7 +326,7 @@ def run_agent(
         if response.usage is not None:
             state.input_tokens_used += response.usage.input_tokens
 
-        # Server-side web tools hit their internal loop cap: re-send to resume.
+        # Server-side web tools hit their internal loop 
         if response.stop_reason == "pause_turn":
             messages.append({"role": "assistant", "content": response.content})
             continue
