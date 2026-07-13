@@ -120,6 +120,47 @@ class ComparisonResult:
         out.index.name = self.key
         return out
 
+    def differences_long_df(self) -> pd.DataFrame:
+        """Tidy 'one differing cell per row' view, for the HTML report.
+
+        `differences_df` is a wide, sparse matrix (one row per key, two or three
+        columns per differing field) that scrolls sideways badly and is mostly
+        empty cells. This flattens it so a reader scans *down* a fixed handful of
+        columns — key, column, method, both values, percent_diff — instead of
+        *across* dozens. Grouped by column so one field's differences cluster
+        together. `percent_diff` is dropped when no compared column produced it.
+        """
+        rows = []
+        for name, column in self.columns.items():
+            if column.n_differences == 0:
+                continue
+            percent = column.percent_diff
+            for key in column.left.index:
+                rows.append(
+                    {
+                        self.key: key,
+                        "column": name,
+                        "method": column.method,
+                        self.left_name: column.left.get(key),
+                        self.right_name: column.right.get(key),
+                        "percent_diff": (
+                            percent.get(key) if percent is not None else None
+                        ),
+                    }
+                )
+        cols = [
+            self.key,
+            "column",
+            "method",
+            self.left_name,
+            self.right_name,
+            "percent_diff",
+        ]
+        df = pd.DataFrame(rows, columns=cols)
+        if df["percent_diff"].isna().all():
+            df = df.drop(columns=["percent_diff"])
+        return df
+
     def to_dict(self) -> dict:
         """JSON-ready summary: counts and exclusives, no pandas. For CI asserts
         and passing results across process boundaries (e.g. bioforklift)."""

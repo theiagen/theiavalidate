@@ -7,8 +7,10 @@ works. PDF conversion uses `pdfkit` (a core dependency) and needs the
 
 from __future__ import annotations
 
+import base64
 from datetime import date
 from html import escape
+from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -17,25 +19,78 @@ import pdfkit
 if TYPE_CHECKING:
     from theiavalidate.results import ComparisonResult
 
+# Theiagen brand palette, matching the docs "light" color scheme (extra.css):
+#   blue  #116eb7  primary
+#   green #1da74a  accent
+#   ink   #262626  body text
+# Colors are hardcoded (no CSS variables) so wkhtmltopdf's old WebKit renders
+# the PDF identically to the HTML.
 _CSS = """
 body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-       color: #1a1a1a; margin: 24px; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-.subtitle { color: #666; margin: 0 0 16px; font-size: 13px; }
-.banner { display: inline-block; padding: 6px 14px; border-radius: 4px;
-          font-weight: 600; font-size: 14px; margin-bottom: 20px; }
-.banner.pass { background: #d4edda; color: #155724; }
-.banner.fail { background: #f8d7da; color: #721c24; }
-h2 { font-size: 15px; border-bottom: 1px solid #ddd; padding-bottom: 4px;
-     margin: 24px 0 10px; }
-.scroll { overflow-x: auto; }
-table.tv-table { border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
-table.tv-table th, table.tv-table td { border: 1px solid #ccc; padding: 4px 8px;
-                                       text-align: left; white-space: nowrap; }
-table.tv-table th { background: #f0f0f0; }
-ul.legend { font-size: 12px; color: #444; padding-left: 18px; }
-.muted { color: #888; font-size: 12px; }
+       color: #262626; margin: 0; line-height: 1.5; font-size: 14px; }
+.header { background: #116eb7; padding: 16px 32px;
+          border-bottom: 2px solid #1da74a; }
+.header img.logo { height: 38px; display: block; }
+main { padding: 24px 32px 32px; }
+h1 { font-size: 22px; line-height: 1.25; margin: 0 0 2px; color: #116eb7; }
+.subtitle { color: #595959; margin: 0 0 18px; font-size: 13px; }
+.banner { display: inline-block; padding: 7px 16px; border-radius: 4px;
+          font-weight: 700; font-size: 12px; letter-spacing: 0.05em;
+          text-transform: uppercase; margin-bottom: 24px; }
+.banner.pass { background: #d2f0dc; color: #14713a; border: 1px solid #1da74a; }
+.banner.fail { background: #f8d7da; color: #721c24; border: 1px solid #dda2a8; }
+h2 { font-size: 16px; color: #116eb7; border-bottom: 1px solid #1da74a;
+     padding-bottom: 5px; margin: 30px 0 12px; }
+.scroll { overflow-x: auto; margin-bottom: 10px; }
+table.tv-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+table.tv-table th, table.tv-table td { border: 1px solid #ececec; padding: 5px 10px;
+                                       text-align: left; }
+table.tv-table th { background: #eaf2f9; color: #0d5a97; font-weight: 600;
+                    border-bottom: 1px solid #116eb7;
+                    position: sticky; top: 0; z-index: 2; }
+table.tv-table tr:nth-child(even) td { background: #f4f8fb; }
+
+/* Summary: natural full-width layout. Only the column-header row is resizable —
+   drag a header's right edge — and cells wrap once a column is dragged narrow.
+   (The row-label cells are also <th>, so the resize handle is scoped to the
+   header row to keep it off every data row.) Resize is an interactive-only
+   affordance; the PDF just renders the columns as laid out. */
+table.tv-summary thead tr:first-child th { resize: horizontal; overflow: auto; }
+table.tv-summary th, table.tv-summary td { white-space: normal;
+                                           overflow-wrap: anywhere; }
+
+/* Differences: a tidy 'one differing cell per row' table. Fixed layout keeps it
+   to the page width — long values wrap in the two value columns rather than
+   scrolling sideways — and the sample column is frozen so it stays visible if a
+   row is wide enough to scroll. (Sticky is ignored by the PDF renderer, which is
+   fine: the PDF just lays the table out statically.) */
+table.tv-diff { table-layout: fixed; width: 100%; }
+table.tv-diff th, table.tv-diff td { white-space: normal; word-break: break-word;
+                                     vertical-align: top; }
+table.tv-diff tr > *:nth-child(1) { width: 150px; }
+table.tv-diff tr > *:nth-child(2) { width: 170px; color: #0d5a97; }
+table.tv-diff tr > *:nth-child(3) { width: 90px; }
+table.tv-diff tr > *:nth-child(6) { width: 70px; text-align: right; }
+table.tv-diff tr > td:nth-child(1), table.tv-diff tr > th:nth-child(1) {
+    position: sticky; left: 0; background: #eaf2f9; font-weight: 600; z-index: 1; }
+table.tv-diff th:nth-child(1) { z-index: 3; }
+/* Prose is capped for readability; wide tables above are not. */
+.exclusives { max-width: 900px; }
+.exclusives p { margin: 6px 0; }
+.exclusives .label { color: #0d5a97; font-weight: 600; }
+ul.legend { font-size: 13px; color: #333; padding-left: 20px; max-width: 900px;
+            line-height: 1.7; }
+.muted { color: #6b6b6b; }
+.footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid #e0e1e1;
+          color: #6b6b6b; font-size: 11px; }
+.footer img.symbol { height: 22px; vertical-align: middle; margin-right: 8px; }
 """
+
+
+def _asset_data_uri(name: str) -> str:
+    """Base64-embed a packaged image so the report stays self-contained."""
+    data = (resources.files("theiavalidate") / "assets" / name).read_bytes()
+    return f"data:image/png;base64,{base64.b64encode(data).decode('ascii')}"
 
 
 def render(
@@ -63,9 +118,16 @@ def render(
 
 def _document(result: "ComparisonResult") -> str:
     title = f"{result.left_name} vs {result.right_name}"
+    symbol = _asset_data_uri("theiagen-symbol.png")
     return (
         "<!DOCTYPE html><html><head><meta charset='utf-8'>"
-        f"<title>{_esc(title)}</title><style>{_CSS}</style></head><body>"
+        f"<title>{_esc(title)}</title>"
+        f"<link rel='icon' type='image/png' href='{symbol}'>"
+        f"<style>{_CSS}</style></head><body>"
+        "<div class='header'>"
+        f"<img class='logo' src='{_asset_data_uri('theiagen-logo-white.png')}'"
+        " alt='Theiagen Genomics'></div>"
+        "<main>"
         f"<h1>{_esc(title)}</h1>"
         f"<p class='subtitle'>Validation report — {date.today().isoformat()}</p>"
         f"{_banner(result.passed)}"
@@ -73,7 +135,10 @@ def _document(result: "ComparisonResult") -> str:
         f"{_differences_section(result)}"
         f"{_exclusives_section(result)}"
         f"{_legend()}"
-        "</body></html>"
+        "<p class='footer'>"
+        f"<img class='symbol' src='{symbol}' alt=''>"
+        "Generated by theiavalidate · Theiagen Genomics</p>"
+        "</main></body></html>"
     )
 
 
@@ -87,16 +152,22 @@ def _summary_section(result: "ComparisonResult") -> str:
     if summary.empty:
         body = "<p class='muted'>No columns compared.</p>"
     else:
-        body = _table(summary.to_html(classes="tv-table", border=0, na_rep=""))
+        body = _table(
+            summary.to_html(classes="tv-table tv-summary", border=0, na_rep="")
+        )
     return f"<h2>Summary</h2>{body}"
 
 
 def _differences_section(result: "ComparisonResult") -> str:
-    diffs = result.differences_df()
+    diffs = result.differences_long_df()
     if diffs.empty:
         body = "<p class='muted'>No differences found.</p>"
     else:
-        body = _table(diffs.to_html(classes="tv-table", border=0, na_rep=""))
+        body = _table(
+            diffs.to_html(
+                classes="tv-table tv-diff", border=0, na_rep="", index=False
+            )
+        )
     return f"<h2>Differences</h2>{body}"
 
 
@@ -110,14 +181,17 @@ def _exclusives_section(result: "ComparisonResult") -> str:
         or "<span class='muted'>none</span>"
     )
     return (
-        "<h2>What didn't line up</h2>"
-        f"<p><b>Configured columns missing:</b> {missing}</p>"
-        f"<p><b>Rows only in {_esc(left)}:</b> {_items(result.rows_only_left)}</p>"
-        f"<p><b>Rows only in {_esc(right)}:</b> {_items(result.rows_only_right)}</p>"
-        f"<p><b>Columns only in {_esc(left)} (not compared):</b> "
-        f"{_items(result.columns_only_left)}</p>"
-        f"<p><b>Columns only in {_esc(right)} (not compared):</b> "
-        f"{_items(result.columns_only_right)}</p>"
+        "<h2>What didn't line up</h2><div class='exclusives'>"
+        f"<p><span class='label'>Configured columns missing:</span> {missing}</p>"
+        f"<p><span class='label'>Rows only in {_esc(left)}:</span> "
+        f"{_items(result.rows_only_left)}</p>"
+        f"<p><span class='label'>Rows only in {_esc(right)}:</span> "
+        f"{_items(result.rows_only_right)}</p>"
+        f"<p><span class='label'>Columns only in {_esc(left)} "
+        f"(not compared):</span> {_items(result.columns_only_left)}</p>"
+        f"<p><span class='label'>Columns only in {_esc(right)} "
+        f"(not compared):</span> {_items(result.columns_only_right)}</p>"
+        "</div>"
     )
 
 
