@@ -129,7 +129,7 @@ See also the [`examples`](https://github.com/theiagen/theiavalidate/tree/main/ex
 Or, you can copy and paste following command in the Docker image to generate the example outputs.
 
 ```bash
-theiavalidate.py \
+theiavalidate \
   theiavalidate/examples/example-table1.tsv \
   theiavalidate/examples/example-table2.tsv \
   -c "assembly_length,gambit_predicted_taxon,amrfinderplus_amr_core_genes,extra_column" \
@@ -156,7 +156,7 @@ Columns with all values passing validation criteria are excluded. For set compar
 
 This file (available as an HTML and PDF) is a summary of the differences between the two tables. It contains the following information:
 
-- the date `theiavalidate.py` was run
+- the date `theiavalidate` was run
 - as rows, the columns specified in `columns_to_compare`
 - as columns:
   - the number of rows in `table1` that have values
