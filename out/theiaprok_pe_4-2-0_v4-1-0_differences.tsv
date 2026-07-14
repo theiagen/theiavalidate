@@ -1,0 +1,49 @@
+column	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes	amrfinderplus_amr_plus_genes	amrfinderplus_amr_plus_genes	amrfinderplus_stress_genes	amrfinderplus_stress_genes	amrfinderplus_virulence_genes	amrfinderplus_virulence_genes	assembly_length	assembly_length	assembly_length	busco_results	busco_results	combined_mean_q_clean	combined_mean_q_clean	combined_mean_q_clean	combined_mean_readlength_clean	combined_mean_readlength_clean	combined_mean_readlength_clean	est_coverage_clean	est_coverage_clean	est_coverage_clean	fastq_scan_num_reads_clean1	fastq_scan_num_reads_clean1	fastq_scan_num_reads_clean1	fastq_scan_num_reads_clean2	fastq_scan_num_reads_clean2	fastq_scan_num_reads_clean2	gambit_predicted_taxon	gambit_predicted_taxon	hicap_genes	hicap_genes	hicap_serotype	hicap_serotype	number_contigs	number_contigs	number_contigs	plasmidfinder_plasmids	plasmidfinder_plasmids	r1_mean_q_clean	r1_mean_q_clean	r1_mean_q_clean	r2_mean_q_clean	r2_mean_q_clean	r2_mean_q_clean	r1_mean_readlength_clean	r1_mean_readlength_clean	r1_mean_readlength_clean	r2_mean_readlength_clean	r2_mean_readlength_clean	r2_mean_readlength_clean	serotypefinder_serotype	serotypefinder_serotype	ts_mlst_predicted_st	ts_mlst_predicted_st
+table	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	percent_diff	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv	theiaprok_illumina_pe_v4-2-0.tsv	theiaprok_illumina_pe_v4-1-0.tsv
+entity:theiaprok_illumina_pe_v4-2-0_id																																																							
+155734	ompK35_E42RfsTer47																																																						
+19050801924	acrR_V29YfsTer44, mrx(A)						hlyE, traT																																																
+19061904717	acrR_V29YfsTer44, mrx(A)						hlyE, traT																																																
+21071504615	mrx(A)						hlyE, traT																																													O9:H30, O9a	O9, O9a:H30		
+302757	ompK35_E42RfsTer47																																																						
+469114	mrx(A)						bfpA, traT																																													O134, O46:H31	O134:H31, O46		
+ERR9850120	{'No core AMR genes detected by NCBI-AMRFinderPlus'}		{'hmrM'}		{'No STRESS genes detected by NCBI-AMRFinderPlus'}		{'No VIRULENCE genes detected by NCBI-AMRFinderPlus'}		1851489.0			96.9		36.77			254.29			201.82			735458.0	17402.0	1.9075419068618336	735458.0	17402.0	1.9075419068618336	Haemophilus influenzae		{'No_hits'}		No_hits		41.0			{'No plasmids detected in database'}		36.81			36.76			253.85			254.27					ST105	
+M17F02683	cirA_R92VfsTer7, nfsA_S173GfsTer2						hlyE, stm2239																																																
+M21F02113	cirA_W243Ter, mrx(A)						traT																																													O129, O135:H14	O129:H14, O135		
+M22F001066	mrx(A), nfsA_W212Ter						lsrF, traT																																													O129, O135:H14	O129:H14, O135		
+SAMN24249320	nalC_G71E, nalC_S209R, oprD_N363TerfsTer0			crpP																																																			
+SAMN24249373	nalC_G71E, nalC_S209R, nalD_V151CfsTer6																																																						
+SAMN24249374	nalC_G71E, nalC_S209R			crpP																																																			
+SAMN31370019	mexZ_E21SfsTer214, nalC_G71E, nalC_S209R			crpP																																																			
+SAMN31384136	mexZ_E21SfsTer214, nalC_G71E, nalC_S209R			crpP																																																			
+SRR19625577		dfrA51					allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, sty4826, tcfA, tinR, tviA, vexA, xis, yigF																																																
+SRR7232584		tet(34)																																																					
+SRR7706353		tet(38)	tet(38)																																																				
+SRR7706354		tet(38)	tet(38)																																																				
+SRR7706355		tet(38)	tet(38)																																																				
+SRR7706356		tet(38)	tet(38)																																											209.55	207.44	0.010120146766109565							
+TexasAM1			mdt	No plus AMR genes detected by NCBI-AMRFinderPlus																																																			
+TexasAM2			mdt	No plus AMR genes detected by NCBI-AMRFinderPlus																																																			
+03-98DDCS							hlyE																																																
+0398KL							hlyE																																																
+249818							bfpA	No VIRULENCE genes detected by NCBI-AMRFinderPlus																																															
+302752							sty4826																																																
+369711							allD, envF, fljA, gip, gogB, hscC, icmF, int, lsrF, pagK, pagO, pipA, ripR, sciR, steB, stfA, stiA, stjB, stkA, stm0854, stm0859, xis																																																
+461023							bfpA, traT																																													O135, O13:H4	O13, O135:H4		
+472923							inlA																																																
+480757							bfpA, traT																																																
+482933							hlyE																																																
+CL2021-00283104							hlyE						94.5																																										
+H8394DDCS							inlA																																																
+H8394KL							inlA																																																
+M21F00509							hlyE, traT																																																
+M21F01894							hlyE																																																
+PNUSAS001732							allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, sty4826, tcfA, tinR, tviA, vexA, xis, yigF																																																
+PNUSAS058783							allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, tcfA, tinR, tviA, vexA, xis, yigF																																																
+PNUSAS067899							allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, sty4826, tcfA, tinR, tviA, vexA, xis, yigF																																																
+PNUSAS274355							allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, sty4826, tcfA, tinR, tviA, vexA, xis, yigF																																																
+SAL_MB5288AA							allD, gtrC1, hlyE, hyi, icmF, int, lsrF, pagO, pilL, pipA, pltA, rfc, sefA, sopE, staC, stcA, stcD, steB, stgA, sty2629, sty3281, sty4826, tcfA, tinR, tviA, vexA, xis, yigF																																																
+SRR16579222_Ecoli_stxPos2completeOperons							hlyE																																																
+SRR28017575_Ecoli_stxPos1completeOperon							bfpA																																																
+GCWGS-21352																																														228.87	232.14	0.014186243248519477							
+M22F00288																																																				O129:H14, O13	O129, O13:H14		

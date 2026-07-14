@@ -67,6 +67,9 @@ table.tv-summary th, table.tv-summary td { white-space: normal;
 table.tv-diff { table-layout: fixed; width: 100%; }
 table.tv-diff th, table.tv-diff td { white-space: normal; word-break: break-word;
                                      vertical-align: top; }
+/* Header row is resizable, like the summary (all cells are in a single thead
+   row here, since the table is rendered without an index). */
+table.tv-diff thead th { resize: horizontal; overflow: auto; }
 table.tv-diff tr > *:nth-child(1) { width: 150px; }
 table.tv-diff tr > *:nth-child(2) { width: 170px; color: #0d5a97; }
 table.tv-diff tr > *:nth-child(3) { width: 90px; }
@@ -147,15 +150,85 @@ def _banner(passed: bool) -> str:
     return f"<div class='banner {cls}'>{text}</div>"
 
 
+# n_differences heat scale. Green is reserved strictly for zero, so *any* nonzero
+# count is immediately distinguishable: differences ramp yellow (fewest) -> red
+# (most). Columns where every compared row differs get a distinct "critical"
+# color, flagging them for priority review regardless of the absolute count.
+_HEAT_GREEN = (198, 239, 206)
+_HEAT_YELLOW = (255, 235, 156)
+_HEAT_RED = (255, 199, 206)
+_HEAT_CRITICAL_BG = "#461274"  # Theiagen brand purple (see extra.css techdetails)
+_HEAT_CRITICAL_FG = "#ffffff"
+
+
+def _lerp(a: tuple, b: tuple, t: float) -> tuple:
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def _diff_cell_style(n_diff: int, n_compared: int, max_diff: int) -> str:
+    """Inline style for an n_differences cell, per the heat scale above."""
+    if n_compared > 0 and n_diff == n_compared:
+        return (
+            f"background-color: {_HEAT_CRITICAL_BG}; "
+            f"color: {_HEAT_CRITICAL_FG}; font-weight: 700;"
+        )
+    if n_diff <= 0:
+        rgb = _HEAT_GREEN
+    elif max_diff <= 1:
+        # only single-difference columns present: give them the full "few" color
+        rgb = _HEAT_YELLOW
+    else:
+        # ramp yellow (1 difference) -> red (the most differences)
+        t = (n_diff - 1) / (max_diff - 1)
+        rgb = _lerp(_HEAT_YELLOW, _HEAT_RED, t)
+    return f"background-color: rgb{rgb}; color: #1a1a1a;"
+
+
 def _summary_section(result: "ComparisonResult") -> str:
     summary = result.summary_df()
     if summary.empty:
-        body = "<p class='muted'>No columns compared.</p>"
-    else:
-        body = _table(
-            summary.to_html(classes="tv-table tv-summary", border=0, na_rep="")
-        )
-    return f"<h2>Summary</h2>{body}"
+        return "<h2>Summary</h2><p class='muted'>No columns compared.</p>"
+
+    diffs = summary["n_differences"].astype(int)
+    comps = summary["n_compared"].astype(int)
+    critical = (comps > 0) & (diffs == comps)
+    non_critical = diffs[~critical]
+    max_diff = int(non_critical.max()) if len(non_critical) else 0
+
+    # Swap each n_differences value for a unique sentinel, render, then splice a
+    # colored <td> back in. Sentinels use guillemets so HTML-escaping leaves them
+    # untouched; keeping escape on protects the real column names.
+    display = summary.copy()
+    display["n_differences"] = display["n_differences"].astype(object)
+    replacements: list[tuple[str, str]] = []
+    for i, (idx, n) in enumerate(diffs.items()):
+        token = f"«DIFF{i}»"
+        display.loc[idx, "n_differences"] = token
+        style = _diff_cell_style(int(n), int(comps.loc[idx]), max_diff)
+        replacements.append((f"<td>{token}</td>", f'<td style="{style}">{n}</td>'))
+
+    html = display.to_html(classes="tv-table tv-summary", border=0, na_rep="")
+    for old, new in replacements:
+        html = html.replace(old, new)
+    return f"<h2>Summary</h2>{_table(html)}{_heat_legend()}"
+
+
+def _heat_legend() -> str:
+    swatch = (
+        "<span style='display:inline-block;width:11px;height:11px;"
+        "vertical-align:middle;border:1px solid #ccc;margin:0 3px 0 8px;"
+        "background:{bg}'></span>"
+    )
+    return (
+        "<p class='muted' style='margin-top:2px'>"
+        "<b>n_differences</b> shading:"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_GREEN,))}none"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_YELLOW,))}some"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_RED,))}most"
+        f"{swatch.format(bg=_HEAT_CRITICAL_BG)}every compared row differs "
+        "(priority review)"
+        "</p>"
+    )
 
 
 def _differences_section(result: "ComparisonResult") -> str:
