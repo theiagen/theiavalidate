@@ -33,9 +33,31 @@ def _available_presets() -> list[str]:
         return []
 
 
+def _resolve_preset_dir(path: Path) -> Path:
+    """Return the single YAML inside a preset directory, erroring on 0 or >1."""
+    yamls = sorted(p for p in path.iterdir() if p.suffix in {".yaml", ".yml"})
+    if not yamls:
+        raise click.UsageError(f"no YAML files found in preset directory {str(path)!r}")
+    if len(yamls) > 1:
+        names = ", ".join(p.name for p in yamls)
+        raise click.UsageError(
+            f"preset directory {str(path)!r} contains multiple YAML files ({names}); "
+            "point --preset at a single file"
+        )
+    return yamls[0]
+
+
 def _load_config(config_path: Path | None, preset: str | None) -> Config:
     if config_path is not None:
         return Config.from_yaml(str(config_path))
+
+    # --preset accepts a bundled preset name, a path to a YAML file, or a path
+    # to a directory containing exactly one YAML.
+    candidate = Path(preset)
+    if candidate.exists():
+        yaml_path = _resolve_preset_dir(candidate) if candidate.is_dir() else candidate
+        return Config.from_yaml(str(yaml_path))
+
     preset_candidate = resources.files("theiavalidate") / "presets" / f"{preset}.yaml"
     if not preset_candidate.is_file():
         available = _available_presets()
@@ -61,7 +83,11 @@ def main() -> None:
     help="Path to a YAML config.",
 )
 @click.option(
-    "--preset", help="Name of a bundled workflow preset (alternative to --config)."
+    "--preset",
+    help=(
+        "Bundled workflow preset name, or a path to a YAML file or a directory "
+        "containing a single YAML (alternative to --config)."
+    ),
 )
 @click.option(
     "--key",
