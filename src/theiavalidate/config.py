@@ -31,7 +31,7 @@ from pydantic import (
 
 # Comparison methods we want to support. This will expand over time.
 KNOWN_METHODS = frozenset(
-    {"exact", "percent_diff", "range", "ignore", "file_exact", "file_set"}
+    {"exact", "percent_diff", "range", "ignore", "file_exact"}
 )
 
 # Methods that require a numeric threshold

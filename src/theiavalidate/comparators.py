@@ -119,7 +119,7 @@ def check_compatible(method: str, type_spec: TypeSpec, column: str) -> None:
         raise ValueError(
             f"column {column!r}: method {method!r} needs a scalar type, got {type_spec}"
         )
-    if method in {"file_exact", "file_set"}:
+    if method == "file_exact":
         return  # a scalar location string; content comparison handles the rest
     if method == "percent_diff" and type_spec.base_type not in _NUMERIC:
         raise ValueError(
