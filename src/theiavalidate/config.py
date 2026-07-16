@@ -79,9 +79,12 @@ def _check_key_pair(
         raise ValueError("`key1` and `key2` must be set together")
 
 
-# Regex for parsing type strings like `set[str]`, `list[float]`, `str`.
+# Regex for parsing type strings like `set[str]`, `list[float]`, `str`. The
+# optional container wraps the base type; the conditional requires the closing
+# `]` only when a container opened one, so `str` and `set[str]` share the single
+# `base_type` group (Python's re forbids reusing a group name across branches).
 _TYPE_RE = re.compile(
-    r"^(?:(?P<container>set|list)\[(?P<base_type>\w+)\]|(?P<scalar>\w+))$"
+    r"^(?:(?P<container>set|list)\[)?(?P<base_type>\w+)(?(container)\])$"
 )
 
 
@@ -104,8 +107,6 @@ class TypeSpec(BaseModel):
             raise ValueError(
                 f"unparseable type {raw!r} (expected e.g. str, float, set[str], list[float])"
             )
-        if match.group("scalar"):
-            return cls(base_type=match.group("scalar"))
         return cls(
             base_type=match.group("base_type"), container=match.group("container")
         )
