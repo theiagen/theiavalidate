@@ -16,7 +16,7 @@ PDF output (`--pdf`) also needs the `wkhtmltopdf`.
 
 ## Run
 
-Use a bundled **preset** or a custom `--config` YAML. Tables are joined on a key
+Use a named **preset** or a custom `--config` YAML. Tables are joined on a key
 column; because Terra names it `entity:<table>_id`, you can pass the
 key(s) at run time:
 
@@ -28,6 +28,23 @@ theiavalidate validate TABLE1.tsv TABLE2.tsv --preset theiaprok_pe \
 - `--key1/--key2` — per-table key when the columns differ (`key1` = TABLE1).
 - `--key` — single key column shared by both tables.
 - CLI keys override any key set in the config.
+
+Presets are not bundled with the package. `--preset <name>` is resolved either
+from a local directory you provide, or (by default) downloaded from the
+[theiagen/public_health_bioinformatics](https://github.com/theiagen/public_health_bioinformatics/tree/main/tests/config/theiavalidate)
+repo and cached under `~/.cache/theiavalidate`:
+
+```bash
+# download theiaprok_pe.yaml from the repo (cached for later runs)
+theiavalidate validate TABLE1.tsv TABLE2.tsv --preset theiaprok_pe
+
+# resolve theiaprok_pe.yaml from a local directory instead
+theiavalidate validate TABLE1.tsv TABLE2.tsv --preset theiaprok_pe --preset-dir ./presets
+```
+
+- `--preset-dir DIR` — local folder of preset YAMLs; skips the download.
+- `--preset-ref REF` — git branch/tag/commit to download from (default `main`).
+- `--refresh` — re-download instead of using the cached copy.
 
 Custom config and other options:
 
@@ -113,10 +130,15 @@ Under `--outdir`:
 
 ## Presets
 
-Bundled in `src/theiavalidate/presets/`, named `<workflow>_<readtype>`:
+Presets live in the
+[theiagen/public_health_bioinformatics](https://github.com/theiagen/public_health_bioinformatics/tree/main/tests/config/theiavalidate)
+repo (not bundled with this package), named `<workflow>_<readtype>`:
 
 `theiaprok_{pe,se,ont,fasta}`, `theiacov_{pe,se,ont,fasta,clearlabs}`,
 `theiaeuk_{pe,ont}`, `theiameta_pe`, `theiaviral_{pe,ont,panel}`.
+
+`--preset <name>` downloads `<name>.yaml` from there (cached under
+`~/.cache/theiavalidate`), or resolves it from a local `--preset-dir`.
 
 ## Test inputs
 Find phb test inputs in tests/phb/*, and use test_run.sh as the driver

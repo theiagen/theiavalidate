@@ -1,19 +1,20 @@
 """Command-line entry point for theiavalidate.
 
 theiavalidate validate TABLE1 TABLE2 --config validate.yaml
-theiavalidate validate TABLE1 TABLE2 --preset theiaprok -- to-come
+theiavalidate validate TABLE1 TABLE2 --preset theiaprok_pe
+theiavalidate validate TABLE1 TABLE2 --preset theiaprok_pe --preset-dir ./presets
 """
 
 from __future__ import annotations
 
 import sys
-from importlib import resources
 from pathlib import Path
 
 import pandas as pd
 import rich_click as click
 
 from theiavalidate.config import Config
+from theiavalidate.presets import resolve_preset
 from theiavalidate.validator import compare_tables
 
 click.rich_click.TEXT_MARKUP = "rich"
@@ -24,47 +25,20 @@ def _read_table(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
 
 
-def _available_presets() -> list[str]:
-    try:
-        preset_dir = resources.files("theiavalidate") / "presets"
-        presets = [p for p in preset_dir.iterdir() if p.name.endswith(".yaml")]
-        return sorted(preset.name[: -len(".yaml")] for preset in presets)
-    except (FileNotFoundError, NotADirectoryError, ModuleNotFoundError):
-        return []
-
-
-def _resolve_preset_dir(path: Path) -> Path:
-    """Return the single YAML inside a preset directory, erroring on 0 or >1."""
-    yamls = sorted(p for p in path.iterdir() if p.suffix in {".yaml", ".yml"})
-    if not yamls:
-        raise click.UsageError(f"no YAML files found in preset directory {str(path)!r}")
-    if len(yamls) > 1:
-        names = ", ".join(p.name for p in yamls)
-        raise click.UsageError(
-            f"preset directory {str(path)!r} contains multiple YAML files ({names}); "
-            "point --preset at a single file"
-        )
-    return yamls[0]
-
-
-def _load_config(config_path: Path | None, preset: str | None) -> Config:
+def _load_config(
+    config_path: Path | None,
+    preset: str | None,
+    preset_dir: Path | None,
+    preset_ref: str,
+    refresh: bool,
+) -> Config:
     if config_path is not None:
         return Config.from_yaml(str(config_path))
 
-    # --preset accepts a bundled preset name, a path to a YAML file, or a path
-    # to a directory containing exactly one YAML.
-    candidate = Path(preset)
-    if candidate.exists():
-        yaml_path = _resolve_preset_dir(candidate) if candidate.is_dir() else candidate
-        return Config.from_yaml(str(yaml_path))
-
-    preset_candidate = resources.files("theiavalidate") / "presets" / f"{preset}.yaml"
-    if not preset_candidate.is_file():
-        available = _available_presets()
-        raise click.UsageError(
-            f"unknown preset {preset!r}; available: {', '.join(available) or 'none bundled yet'}"
-        )
-    return Config.from_yaml(str(preset_candidate))
+    yaml_path = resolve_preset(
+        preset, preset_dir=preset_dir, ref=preset_ref, refresh=refresh
+    )
+    return Config.from_yaml(str(yaml_path))
 
 
 @click.group()
@@ -85,9 +59,26 @@ def main() -> None:
 @click.option(
     "--preset",
     help=(
-        "Bundled workflow preset name, or a path to a YAML file or a directory "
-        "containing a single YAML (alternative to --config)."
+        "Named workflow preset, e.g. theiaprok_pe (alternative to --config). "
+        "Resolved from --preset-dir if given, otherwise downloaded from the "
+        "theiagen public_health_bioinformatics repo and cached."
     ),
+)
+@click.option(
+    "--preset-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    help="Local directory of preset YAMLs to resolve --preset against (skips download).",
+)
+@click.option(
+    "--preset-ref",
+    default="main",
+    show_default=True,
+    help="Git ref (branch/tag/commit) to download presets from.",
+)
+@click.option(
+    "--refresh",
+    is_flag=True,
+    help="Re-download a cached preset instead of reusing the cached copy.",
 )
 @click.option(
     "--key",
@@ -127,6 +118,9 @@ def validate(
     table2: Path,
     config_path: Path | None,
     preset: str | None,
+    preset_dir: Path | None,
+    preset_ref: str,
+    refresh: bool,
     key: str | None,
     key1: str | None,
     key2: str | None,
@@ -138,9 +132,11 @@ def validate(
     """Compare TABLE1 and TABLE2 using a config (or preset)."""
     if bool(config_path) == bool(preset):
         raise click.UsageError("provide exactly one of --config or --preset")
+    if config_path is not None and (preset_dir is not None or refresh):
+        raise click.UsageError("--preset-dir/--refresh only apply with --preset")
 
     try:
-        config = _load_config(config_path, preset)
+        config = _load_config(config_path, preset, preset_dir, preset_ref, refresh)
         config = config.with_keys(key=key, key1=key1, key2=key2)
         left = _read_table(table1)
         right = _read_table(table2)
