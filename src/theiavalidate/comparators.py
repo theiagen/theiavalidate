@@ -69,7 +69,13 @@ def _range(left, right, *, threshold, type_spec=None):
 
 
 def _abs_days(left: pd.Series, right: pd.Series) -> pd.Series:
-    """Absolute day distance between two datetime Series (nulls -> NaN)."""
+    """Absolute day distance between two temporal Series (nulls -> NaN).
+
+    Normalizes to datetime64 first so this works whether the column coerced to
+    `datetime` (already datetime64) or `date` (Python date objects, object dtype).
+    """
+    left = pd.to_datetime(left, errors="coerce")
+    right = pd.to_datetime(right, errors="coerce")
     return (left - right).abs().dt.total_seconds() / 86400.0  # 86400 seconds/day
 
 
