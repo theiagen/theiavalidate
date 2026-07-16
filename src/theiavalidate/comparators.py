@@ -141,6 +141,11 @@ def _label(methods: list[MethodSpec], combinator: str | None = None) -> str:
     return f"{name}(" + ", ".join(one(m) for m in methods) + ")"
 
 
+def _join_set(values) -> str:
+    """Render a set as a plain comma-separated string."""
+    return ", ".join(sorted(map(str, values)))
+
+
 def _format_diffs(left, right, idx, type_spec: TypeSpec):
     """Display values for differing rows. Sets show their symmetric difference."""
     if type_spec.container == "set":
@@ -148,10 +153,13 @@ def _format_diffs(left, right, idx, type_spec: TypeSpec):
         for key in idx:
             left_val, right_val = left.get(key), right.get(key)
             if isinstance(left_val, set) and isinstance(right_val, set):
-                left_disp[key] = ", ".join(sorted(map(str, left_val - right_val)))
-                right_disp[key] = ", ".join(sorted(map(str, right_val - left_val)))
+                # both present: show only the elements that differ
+                left_disp[key] = _join_set(left_val - right_val)
+                right_disp[key] = _join_set(right_val - left_val)
             else:
-                left_disp[key], right_disp[key] = left_val, right_val
+                # one side null: show the present set in full, still as a string
+                left_disp[key] = _join_set(left_val) if isinstance(left_val, set) else left_val
+                right_disp[key] = _join_set(right_val) if isinstance(right_val, set) else right_val
         return pd.Series(left_disp, dtype=object), pd.Series(right_disp, dtype=object)
     return left.loc[idx], right.loc[idx]
 
