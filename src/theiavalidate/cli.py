@@ -16,7 +16,7 @@ import rich_click as click
 from theiavalidate.config import Config
 from theiavalidate.validator import compare_tables
 
-click.rich_click.USE_RICH_MARKUP = True
+click.rich_click.TEXT_MARKUP = "rich"
 
 
 def _read_table(path: Path) -> pd.DataFrame:
