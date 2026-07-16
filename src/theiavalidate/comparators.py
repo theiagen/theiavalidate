@@ -131,13 +131,14 @@ def check_compatible(method: str, type_spec: TypeSpec, column: str) -> None:
         )
 
 
-def _label(methods: list[MethodSpec]) -> str:
+def _label(methods: list[MethodSpec], combinator: str | None = None) -> str:
     def one(m: MethodSpec) -> str:
         return f"{m.method}({m.threshold})" if m.threshold is not None else m.method
 
     if len(methods) == 1:
         return one(methods[0])
-    return "any_of(" + ", ".join(one(m) for m in methods) + ")"
+    name = "all_of" if combinator == "all" else "any_of"
+    return f"{name}(" + ", ".join(one(m) for m in methods) + ")"
 
 
 def _format_diffs(left, right, idx, type_spec: TypeSpec):
@@ -174,15 +175,19 @@ def compare_column(left: pd.Series, right: pd.Series, spec: ColumnSpec) -> Colum
             measures[measure.name] = measure
 
     passed = masks[0]
-    for mask in masks[1:]:  # any_of: pass if any branch passes
-        passed = passed | mask
+    if spec.combinator == "all":
+        for mask in masks[1:]:  # all_of: pass only if every branch passes
+            passed = passed & mask
+    else:
+        for mask in masks[1:]:  # any_of (or single method): pass if any branch passes
+            passed = passed | mask
     passed = passed.astype(bool)
 
     diff_index = passed.index[~passed]
     left_disparity, right_disparity = _format_diffs(left, right, diff_index, spec.type)
     return ColumnResult(
         column=spec.name,
-        method=_label(spec.methods),
+        method=_label(spec.methods, spec.combinator),
         passed=passed,
         left=left_disparity,
         right=right_disparity,

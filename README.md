@@ -87,7 +87,8 @@ columns:
 - `method`: how to compare a column
 - `type`: python value to coerce into
 - `mappings`: `na_values`, `delimiter`/`parse`
-- `any_of`: list of `method`/`type` pairs to try in order
+- `any_of`: list of `method` branches; a cell passes if **any** branch passes
+- `all_of`: list of `method` branches; a cell passes only if **every** branch passes
 - `delimiter`: custom delimiter for `method: exact` with `type: set[str]`
 
 ## Methods
@@ -100,7 +101,7 @@ columns:
 | `ignore` | skip | always passes, in case we want to keep a column in the config, but for the comparison we want to skip it |
 | `file_exact` | file content equality | md5 of local path or `gs://`/`s3://` URI |
 
-Where both cells are null, they match. Where one is null we get a mismatch. Combine methods with `any_of`.
+Where both cells are null, they match. Where one is null we get a mismatch. Combine methods with `any_of` (OR) or `all_of` (AND).
 
 ## Output
 

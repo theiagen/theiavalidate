@@ -189,7 +189,8 @@ class ParseSpec(BaseModel):
 class MethodSpec(BaseModel):
     """A single comparison: a method plus its threshold (if numeric).
 
-    Used both for a column's top-level comparison and for each branch of `any_of`.
+    Used both for a column's top-level comparison and for each branch of
+    `any_of`/`all_of`.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -225,12 +226,14 @@ class ColumnSpec(BaseModel):
     method: Optional[str] = None
     threshold: Optional[float] = None
     any_of: Optional[list[MethodSpec]] = None
+    all_of: Optional[list[MethodSpec]] = None
     delimiter: Optional[str] = None
     parse: Optional[ParseSpec] = None
     mappings: list[str] = []  # alternate source column names in either table
     na_values: Optional[list[str]] = None  # per-column extension of the global set
 
     _methods: list[MethodSpec] = PrivateAttr(default_factory=list)
+    _combinator: Optional[str] = PrivateAttr(default=None)  # "any", "all", or None
 
     @field_validator("type", mode="before")
     @classmethod
@@ -239,20 +242,24 @@ class ColumnSpec(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "ColumnSpec":
-        # When any_of is set, method must be None (and vice versa).
-        if bool(self.method) == bool(self.any_of):
+        # Exactly one of `method`, `any_of`, or `all_of` selects the comparison.
+        selectors = [n for n in ("method", "any_of", "all_of") if getattr(self, n)]
+        if len(selectors) != 1:
             raise ValueError(
-                f"column {self.name!r}: set exactly one of `method` or `any_of`"
+                f"column {self.name!r}: set exactly one of `method`, `any_of`, or `all_of`"
             )
 
         if self.method:
             self._methods = [MethodSpec(method=self.method, threshold=self.threshold)]
         else:
+            branches = self.any_of or self.all_of
             if self.threshold is not None:
+                kind = "any_of" if self.any_of else "all_of"
                 raise ValueError(
-                    f"column {self.name!r}: put `threshold` inside each `any_of` branch, not at column level"
+                    f"column {self.name!r}: put `threshold` inside each `{kind}` branch, not at column level"
                 )
-            self._methods = list(self.any_of or [])
+            self._methods = list(branches or [])
+            self._combinator = "any" if self.any_of else "all"
 
         # delimiter and parse are mutually exclusive
         if self.delimiter is not None and self.parse is not None:
@@ -288,8 +295,13 @@ class ColumnSpec(BaseModel):
 
     @property
     def methods(self) -> list[MethodSpec]:
-        """The comparison(s) to run, holds always a list, whether `method` or `any_of`."""
+        """The comparison(s) to run, always a list, whether `method`, `any_of`, or `all_of`."""
         return self._methods
+
+    @property
+    def combinator(self) -> Optional[str]:
+        """How to fold multiple branches: "any" (OR), "all" (AND), or None for a single method."""
+        return self._combinator
 
     @property
     def effective_parse(self) -> Optional[ParseSpec]:

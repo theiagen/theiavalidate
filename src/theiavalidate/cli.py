@@ -122,11 +122,6 @@ def main() -> None:
     is_flag=True,
     help="Also write a PDF report (needs the wkhtmltopdf system binary).",
 )
-@click.option(
-    "--exit-zero",
-    is_flag=True,
-    help="Always exit 0, even when differences are found.",
-)
 def validate(
     table1: Path,
     table2: Path,
@@ -139,7 +134,6 @@ def validate(
     prefix: str,
     html: bool,
     pdf: bool,
-    exit_zero: bool,
 ) -> None:
     """Compare TABLE1 and TABLE2 using a config (or preset)."""
     if bool(config_path) == bool(preset):
@@ -163,8 +157,7 @@ def validate(
         click.secho("PASSED, LGTM", fg="green", bold=True)
     else:
         click.secho("DIFFERENCES FOUND", fg="red", bold=True)
-        if not exit_zero:
-            sys.exit(1)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
