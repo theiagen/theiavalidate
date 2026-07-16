@@ -40,7 +40,7 @@ def _ignore(left, right, *, threshold=None, type_spec=None):
 
 
 def _percent_diff(left, right, *, threshold, type_spec=None):
-    """Percent diff is calculated as (left - right) / (abs(left) + abs(right))
+    """Percent diff is calculated as (left - right) / (abs(left) + abs(right))/2
     Threshold is expected as a fraction (e.g. 0.05 for 5%)"""
     left_val = pd.to_numeric(left, errors="coerce")
     right_val = pd.to_numeric(right, errors="coerce")
@@ -96,11 +96,6 @@ def _file_exact(left, right, *, threshold=None, type_spec=None):
     return pd.Series(passed, index=left.index, dtype=bool), None
 
 
-def _file_set(*args, **kwargs):
-    # This was in the orginal, wonder if we need this or another method
-    raise NotImplementedError("file_set comparison is not implemented yet")
-
-
 # registry of comparator functions, keyed by method name
 COMPARATORS: dict[str, Callable] = {
     "exact": _exact,
@@ -108,7 +103,6 @@ COMPARATORS: dict[str, Callable] = {
     "percent_diff": _percent_diff,
     "range": _range,
     "file_exact": _file_exact,
-    "file_set": _file_set,
 }
 
 # Runs at import to validate methods
