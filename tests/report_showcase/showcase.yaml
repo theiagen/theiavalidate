@@ -1,0 +1,74 @@
+# TheiaValidate showcase config — exercises every comparison method.
+#
+# One config drives two datasets (see make_fixtures.py):
+#   pass/  -> every column matches      -> "PASSED" report
+#   fail/  -> engineered differences    -> "DIFFERENCES FOUND" report whose
+#             n_differences counts span the full heat gradient (green -> yellow
+#             -> red -> critical purple).
+#
+# Methods covered: exact, ignore, percent_diff, range (numeric), range (date),
+# file_exact, plus the any_of and all_of combinators.
+
+key: samplename
+
+columns:
+  # exact on a plain scalar — engineered to pass in the fail set (green anchor)
+  exact_pass:
+    method: exact
+    type: str
+
+  # exact on a plain scalar — some rows differ
+  exact_str:
+    method: exact
+    type: str
+
+  # ignore always passes even when the underlying values differ (green anchor)
+  ignore_me:
+    method: ignore
+
+  # percent_diff within a 5% fractional tolerance
+  pct_float:
+    method: percent_diff
+    threshold: 0.05
+    type: float
+
+  # range within an absolute numeric tolerance
+  range_int:
+    method: range
+    threshold: 3
+    type: int
+
+  # range within an absolute tolerance of days, on a date column
+  range_date:
+    method: range
+    threshold: 2
+    type: date
+
+  # file_exact — cells are file locations; contents compared by md5
+  file_hash:
+    method: file_exact
+    type: str
+
+  # any_of — passes if EITHER branch passes (within 1% OR within 3 absolute)
+  any_of_float:
+    type: float
+    any_of:
+      - method: percent_diff
+        threshold: 0.01
+      - method: range
+        threshold: 3
+
+  # all_of — passes only if BOTH branches pass (within 50% AND within 100)
+  all_of_float:
+    type: float
+    all_of:
+      - method: percent_diff
+        threshold: 0.5
+      - method: range
+        threshold: 100
+
+  # exact on a delimited set — every row differs in the fail set (critical/purple)
+  set_field:
+    method: exact
+    type: set[str]
+    delimiter: ","

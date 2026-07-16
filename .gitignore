@@ -164,5 +164,7 @@ cython_debug/
 .devcontainer
 
 # testing files
-sandbox/
-file_diffs/
+tests/report_showcase/fail
+tests/report_showcase/files
+tests/report_showcase/out
+tests/report_showcase/pass

@@ -41,7 +41,7 @@ h1 { font-size: 22px; line-height: 1.25; margin: 0 0 2px; color: #116eb7; }
 .banner.fail { background: #f8d7da; color: #721c24; border: 1px solid #dda2a8; }
 h2 { font-size: 16px; color: #116eb7; border-bottom: 1px solid #1da74a;
      padding-bottom: 5px; margin: 30px 0 12px; }
-.scroll { overflow-x: auto; margin-bottom: 10px; }
+.scroll { overflow-x: auto; margin-bottom: 10px; position: relative; }
 table.tv-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 table.tv-table th, table.tv-table td { border: 1px solid #ececec; padding: 5px 10px;
                                        text-align: left; }
@@ -50,14 +50,15 @@ table.tv-table th { background: #eaf2f9; color: #0d5a97; font-weight: 600;
                     position: sticky; top: 0; z-index: 2; }
 table.tv-table tr:nth-child(even) td { background: #f4f8fb; }
 
-/* Summary: natural full-width layout. Only the column-header row is resizable —
-   drag a header's right edge — and cells wrap once a column is dragged narrow.
-   (The row-label cells are also <th>, so the resize handle is scoped to the
-   header row to keep it off every data row.) Resize is an interactive-only
-   affordance; the PDF just renders the columns as laid out. */
-table.tv-summary thead tr:first-child th { resize: horizontal; overflow: auto; }
+/* Summary: natural full-width layout; cells wrap once a column is dragged
+   narrow. Columns resize by dragging the divider between them (see the injected
+   resizer script) — a full-height grab strip, not the browser's per-cell
+   corner grip, so no resize glyph appears in any row. Resize is an
+   interactive-only affordance; the PDF just renders the columns as laid out. */
 table.tv-summary th, table.tv-summary td { white-space: normal;
                                            overflow-wrap: anywhere; }
+/* The first column holds the compared column name — bold it. */
+table.tv-summary td:first-child { font-weight: 700; }
 
 /* Differences: a tidy 'one differing cell per row' table. Fixed layout keeps it
    to the page width — long values wrap in the two value columns rather than
@@ -67,9 +68,6 @@ table.tv-summary th, table.tv-summary td { white-space: normal;
 table.tv-diff { table-layout: fixed; width: 100%; }
 table.tv-diff th, table.tv-diff td { white-space: normal; word-break: break-word;
                                      vertical-align: top; }
-/* Header row is resizable, like the summary (all cells are in a single thead
-   row here, since the table is rendered without an index). */
-table.tv-diff thead th { resize: horizontal; overflow: auto; }
 table.tv-diff tr > *:nth-child(1) { width: 150px; }
 table.tv-diff tr > *:nth-child(2) { width: 170px; color: #0d5a97; }
 table.tv-diff tr > *:nth-child(3) { width: 90px; }
@@ -87,6 +85,99 @@ ul.legend { font-size: 13px; color: #333; padding-left: 20px; max-width: 900px;
 .footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid #e0e1e1;
           color: #6b6b6b; font-size: 11px; }
 .footer img.symbol { height: 22px; vertical-align: middle; margin-right: 8px; }
+
+/* Column resizer: a thin full-height strip sitting on each column boundary,
+   added by the injected script. Drag from anywhere down the column, not just
+   the header — and no per-cell resize grip is shown. */
+.col-resizer { position: absolute; top: 0; width: 9px; margin-left: -5px;
+               cursor: col-resize; z-index: 5; user-select: none; }
+.col-resizer::before { content: ''; position: absolute; left: 4px; top: 0;
+                       bottom: 0; width: 1px; background: transparent; }
+.col-resizer:hover::before, .col-resizer.dragging::before { background: #116eb7; }
+body.col-resizing { cursor: col-resize; user-select: none; }
+"""
+
+
+# Dependency-free column resizer. CSS `resize` only grabs an element's
+# bottom-right corner and paints a grip glyph on every element it's set on, so
+# "drag from the middle of the column" would need the property on data cells too
+# — a grip in every row. Instead we lay a full-height grab strip on each column
+# boundary. Widths are locked (via a <colgroup>) lazily on the first drag, so the
+# initial layout — and the PDF, whose renderer ignores this script — is untouched.
+_RESIZE_JS = """
+(function () {
+  function setup(table) {
+    var wrap = table.parentNode;
+    var head = table.tHead && table.tHead.rows[0];
+    if (!wrap || !head) return;
+    var cells = head.cells, handles = [], cols = null;
+
+    function locked() { return cols !== null; }
+    function lock() {
+      if (locked()) return;
+      var group = document.createElement('colgroup'), total = 0;
+      for (var i = 0; i < cells.length; i++) {
+        var w = cells[i].getBoundingClientRect().width;
+        var col = document.createElement('col');
+        col.style.width = w + 'px';
+        group.appendChild(col);
+        total += w;
+      }
+      table.insertBefore(group, table.firstChild);
+      table.style.tableLayout = 'fixed';
+      table.style.width = total + 'px';
+      cols = group.children;
+    }
+    function place() {
+      var base = wrap.getBoundingClientRect().left - wrap.scrollLeft;
+      for (var i = 0; i < handles.length; i++) {
+        handles[i].style.left = (cells[i].getBoundingClientRect().right - base) + 'px';
+        handles[i].style.height = table.offsetHeight + 'px';
+      }
+    }
+    function start(idx, handle, downX) {
+      lock();
+      var startW = cols[idx].getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+      function move(ev) {
+        cols[idx].style.width = Math.max(40, startW + ev.clientX - downX) + 'px';
+        var total = 0;
+        for (var i = 0; i < cols.length; i++) total += parseFloat(cols[i].style.width);
+        table.style.width = total + 'px';
+        place();
+      }
+      function up() {
+        handle.classList.remove('dragging');
+        document.body.classList.remove('col-resizing');
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+      }
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    // One divider per internal boundary; none on the last column's right edge
+    // (that's the table edge, not a boundary — and a handle there would poke a
+    // few px past the content and add a stray horizontal scrollbar).
+    for (var i = 0; i < cells.length - 1; i++) {
+      (function (idx) {
+        var handle = document.createElement('div');
+        handle.className = 'col-resizer';
+        handle.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          start(idx, handle, e.clientX);
+        });
+        wrap.appendChild(handle);
+        handles.push(handle);
+      })(i);
+    }
+    place();
+    window.addEventListener('resize', place);
+    wrap.addEventListener('scroll', place);
+  }
+  var tables = document.querySelectorAll('table.tv-table');
+  for (var i = 0; i < tables.length; i++) setup(tables[i]);
+})();
 """
 
 
@@ -140,8 +231,10 @@ def _document(result: "ComparisonResult") -> str:
         f"{_legend()}"
         "<p class='footer'>"
         f"<img class='symbol' src='{symbol}' alt=''>"
-        "Generated by theiavalidate · Theiagen Genomics</p>"
-        "</main></body></html>"
+        "Generated by TheiaValidate™ · Theiagen Genomics</p>"
+        "</main>"
+        f"<script>{_RESIZE_JS}</script>"
+        "</body></html>"
     )
 
 
@@ -157,7 +250,7 @@ def _banner(passed: bool) -> str:
 _HEAT_GREEN = (198, 239, 206)
 _HEAT_YELLOW = (255, 235, 156)
 _HEAT_RED = (255, 199, 206)
-_HEAT_CRITICAL_BG = "#461274"  # Theiagen brand purple (see extra.css techdetails)
+_HEAT_CRITICAL_BG = "#461274"
 _HEAT_CRITICAL_FG = "#ffffff"
 
 
@@ -207,7 +300,12 @@ def _summary_section(result: "ComparisonResult") -> str:
         style = _diff_cell_style(int(n), int(comps.loc[idx]), max_diff)
         replacements.append((f"<td>{token}</td>", f'<td style="{style}">{n}</td>'))
 
-    html = display.to_html(classes="tv-table tv-summary", border=0, na_rep="")
+    # Render with the index as a normal first column (index=False) so its label,
+    # "column", sits in the single top header row. pandas' default index render
+    # pushes the index name down onto its own second header row.
+    html = display.reset_index().to_html(
+        classes="tv-table tv-summary", border=0, na_rep="", index=False
+    )
     for old, new in replacements:
         html = html.replace(old, new)
     return f"<h2>Summary</h2>{_table(html)}{_heat_legend()}"
@@ -225,8 +323,7 @@ def _heat_legend() -> str:
         f"{swatch.format(bg='rgb%s' % (_HEAT_GREEN,))}none"
         f"{swatch.format(bg='rgb%s' % (_HEAT_YELLOW,))}some"
         f"{swatch.format(bg='rgb%s' % (_HEAT_RED,))}most"
-        f"{swatch.format(bg=_HEAT_CRITICAL_BG)}every compared row differs "
-        "(priority review)"
+        f"{swatch.format(bg=_HEAT_CRITICAL_BG)}every compared row differs"
         "</p>"
     )
 
@@ -254,7 +351,7 @@ def _exclusives_section(result: "ComparisonResult") -> str:
         or "<span class='muted'>none</span>"
     )
     return (
-        "<h2>What didn't line up</h2><div class='exclusives'>"
+        "<h2>Excluded from comparison</h2><div class='exclusives'>"
         f"<p><span class='label'>Configured columns missing:</span> {missing}</p>"
         f"<p><span class='label'>Rows only in {_esc(left)}:</span> "
         f"{_items(result.rows_only_left)}</p>"
@@ -276,6 +373,8 @@ def _legend() -> str:
         "<li><b>percent_diff</b> — within a fractional tolerance of each other</li>"
         "<li><b>range</b> — within an absolute tolerance (days, for dates)</li>"
         "<li><b>file_exact</b> — referenced files are byte-identical (md5)</li>"
+        "<li><b>any_of(...)</b> — passes if <i>any</i> listed method passes (OR)</li>"
+        "<li><b>all_of(...)</b> — passes only if <i>every</i> listed method passes (AND)</li>"
         "</ul>"
     )
 
