@@ -1,9 +1,0 @@
-column	criteria
-assembled_viruses	EXACT
-identified_organisms	EXACT
-fastq_scan_num_reads_clean1	EXACT
-fastq_scan_num_reads_clean2	EXACT
-fastq_scan_num_reads_raw1	EXACT
-fastq_scan_num_reads_raw2	EXACT
-kraken_percent_human_clean	EXACT
-kraken_percent_human_raw	EXACT
