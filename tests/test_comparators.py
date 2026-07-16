@@ -35,6 +35,22 @@ class TestExact:
         )
         assert dict(compare_column(left, right, spec).passed) == {"a": True, "b": False}
 
+    def test_set_diff_rendered_as_plain_string(self):
+        # both sides present: show only the differing elements, no {...} repr.
+        spec = ColumnSpec(name="c", type="set[str]", method="exact", delimiter=",")
+        left, right = _prep(spec, {"a": "x,y,z"}, {"a": "x,y,w"})
+        result = compare_column(left, right, spec)
+        assert result.left["a"] == "z"
+        assert result.right["a"] == "w"
+
+    def test_set_vs_null_rendered_as_plain_string(self):
+        # one side null: show the present set in full, still without {...}.
+        spec = ColumnSpec(name="c", type="set[str]", method="exact", delimiter=",")
+        left, right = _prep(spec, {"a": "hmrM,tetB"}, {"a": np.nan})
+        result = compare_column(left, right, spec)
+        assert result.left["a"] == "hmrM, tetB"
+        assert pd.isna(result.right["a"])
+
 
 class TestIgnore:
     def test_always_passes(self):

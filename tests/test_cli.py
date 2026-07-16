@@ -1,6 +1,7 @@
 """CLI surface: version, config/preset selection, and exit codes."""
 
 import textwrap
+from importlib import metadata
 
 from click.testing import CliRunner
 
@@ -39,7 +40,7 @@ class TestVersion:
     def test_version_flag(self):
         result = CliRunner().invoke(main, ["--version"])
         assert result.exit_code == 0
-        assert "2.0.0.dev0" in result.output
+        assert metadata.version("theiavalidate") in result.output
 
 
 class TestValidateSelection:
