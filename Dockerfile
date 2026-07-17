@@ -1,28 +1,27 @@
-ARG THEIAVALIDATE_VER="1.1.3"
+ARG THEIAVALIDATE_VER="2.0.0"
 
-FROM google/cloud-sdk:455.0.0-slim 
+# Pinned to bookworm: wkhtmltopdf
+FROM python:3.12-slim-bookworm
 
 ARG THEIAVALIDATE_VER
 
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-setuptools \
-    python3-wheel \
+LABEL org.opencontainers.image.title="theiavalidate" \
+      org.opencontainers.image.version="${THEIAVALIDATE_VER}" \
+      org.opencontainers.image.source="https://github.com/theiagen/theiavalidate" \
+      org.opencontainers.image.description="Config-driven comparison and validation of tabular pipeline outputs."
+
+# wkhtmltopdf   -> required for --pdf report output
+# ca-certificates -> TLS for downloading presets from raw.githubusercontent.com
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wkhtmltopdf \
-    wget \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget https://github.com/theiagen/theiavalidate/archive/refs/tags/v${THEIAVALIDATE_VER}.tar.gz \
-    && tar -xzf v${THEIAVALIDATE_VER}.tar.gz \
-    && mv theiavalidate-${THEIAVALIDATE_VER} /theiavalidate \
-    && rm v${THEIAVALIDATE_VER}.tar.gz
+# Just gonna install it from the source for now with the [cloud] extra for fsspec
+COPY . /theiavalidate
+RUN pip install --no-cache-dir "/theiavalidate[cloud]"
 
-RUN pip3 install -r /theiavalidate/requirements.txt \
-    && chmod +x /theiavalidate/theiavalidate/*.py
-
-ENV PATH="/theiavalidate/theiavalidate:${PATH}"
-
-RUN theiavalidate.py -h
+# Test this bwa out
+RUN theiavalidate --help
 
 WORKDIR /data

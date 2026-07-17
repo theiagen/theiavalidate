@@ -1,0 +1,17 @@
+# Virtualenvs / caches — never needed in the image (installed fresh via pip)
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# VCS / CI
+.git/
+.github/
+
+# Local dev artifacts
+tests/
+*.egg-info/
+build/
+dist/
