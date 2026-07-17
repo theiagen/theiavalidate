@@ -5,10 +5,15 @@ FROM python:3.12-slim-bookworm
 
 ARG THEIAVALIDATE_VER
 
-LABEL org.opencontainers.image.title="theiavalidate" \
-      org.opencontainers.image.version="${THEIAVALIDATE_VER}" \
-      org.opencontainers.image.source="https://github.com/theiagen/theiavalidate" \
-      org.opencontainers.image.description="Config-driven comparison and validation of tabular pipeline outputs."
+LABEL base.image="python:3.12-slim-bookworm"
+LABEL dockerfile.version="1"
+LABEL software="theiavalidate"
+LABEL software.version="${THEIAVALIDATE_VER}"
+LABEL description="Config-driven comparison and validation of tabular pipeline outputs."
+LABEL website="https://github.com/theiagen/theiavalidate"
+LABEL license="https://github.com/theiagen/theiavalidate/blob/main/LICENSE"
+LABEL maintainer="Theiagen"
+LABEL maintainer.email="developers@theiagen.com"
 
 # wkhtmltopdf   -> required for --pdf report output
 # ca-certificates -> TLS for downloading presets from raw.githubusercontent.com
