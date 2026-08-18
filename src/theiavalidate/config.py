@@ -280,18 +280,6 @@ class ColumnSpec(BaseModel):
             raise ValueError(
                 f"column {self.name!r}: `delimiter` is meaningless for scalar type {self.type}"
             )
-
-        builds_collection = self.delimiter is not None or (
-            self.parse is not None and self.parse.yields_collection
-        )
-        if self.type.is_container and not builds_collection:
-            raise ValueError(
-                f"column {self.name!r}: type {self.type} needs a `delimiter` (or a collection-yielding `parse`)"
-            )
-        if not self.type.is_container and self.delimiter is not None:
-            raise ValueError(
-                f"column {self.name!r}: `delimiter` is meaningless for scalar type {self.type}"
-            )
         return self
 
     @property
