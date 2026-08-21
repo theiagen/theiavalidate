@@ -1,0 +1,408 @@
+"""Render a ComparisonResult to a self-contained HTML report, and optionally PDF.
+
+HTML is built with pandas + stdlib only (no extra dependencies), so it always
+works. PDF conversion uses `pdfkit` (a core dependency) and needs the
+`wkhtmltopdf` system binary; it converts the same HTML document.
+"""
+
+from __future__ import annotations
+
+import base64
+from datetime import date
+from html import escape
+from importlib import resources
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import pdfkit
+
+if TYPE_CHECKING:
+    from theiavalidate.results import ComparisonResult
+
+# Theiagen brand palette, matching the docs "light" color scheme (extra.css):
+#   blue  #116eb7  primary
+#   green #1da74a  accent
+#   ink   #262626  body text
+# Colors are hardcoded (no CSS variables) so wkhtmltopdf's old WebKit renders
+# the PDF identically to the HTML.
+_CSS = """
+body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+       color: #262626; margin: 0; line-height: 1.5; font-size: 14px; }
+.header { background: #116eb7; padding: 16px 32px;
+          border-bottom: 2px solid #1da74a; }
+.header img.logo { height: 38px; display: block; }
+main { padding: 24px 32px 32px; }
+h1 { font-size: 22px; line-height: 1.25; margin: 0 0 2px; color: #116eb7; }
+.subtitle { color: #595959; margin: 0 0 18px; font-size: 13px; }
+.banner { display: inline-block; padding: 7px 16px; border-radius: 4px;
+          font-weight: 700; font-size: 12px; letter-spacing: 0.05em;
+          text-transform: uppercase; margin-bottom: 24px; }
+.banner.pass { background: #d2f0dc; color: #14713a; border: 1px solid #1da74a; }
+.banner.fail { background: #f8d7da; color: #721c24; border: 1px solid #dda2a8; }
+h2 { font-size: 16px; color: #116eb7; border-bottom: 1px solid #1da74a;
+     padding-bottom: 5px; margin: 30px 0 12px; }
+.scroll { overflow-x: auto; margin-bottom: 10px; position: relative; }
+table.tv-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+table.tv-table th, table.tv-table td { border: 1px solid #ececec; padding: 5px 10px;
+                                       text-align: left; }
+table.tv-table th { background: #eaf2f9; color: #0d5a97; font-weight: 600;
+                    border-bottom: 1px solid #116eb7;
+                    position: sticky; top: 0; z-index: 2; }
+table.tv-table tr:nth-child(even) td { background: #f4f8fb; }
+
+/* Summary: natural full-width layout; cells wrap once a column is dragged
+   narrow. Columns resize by dragging the divider between them (see the injected
+   resizer script) — a full-height grab strip, not the browser's per-cell
+   corner grip, so no resize glyph appears in any row. Resize is an
+   interactive-only affordance; the PDF just renders the columns as laid out. */
+table.tv-summary th, table.tv-summary td { white-space: normal;
+                                           overflow-wrap: anywhere; }
+/* The first column holds the compared column name — bold it. */
+table.tv-summary td:first-child { font-weight: 700; }
+
+/* Differences: a tidy 'one differing cell per row' table. Fixed layout keeps it
+   to the page width — long values wrap in the two value columns rather than
+   scrolling sideways — and the sample column is frozen so it stays visible if a
+   row is wide enough to scroll. (Sticky is ignored by the PDF renderer, which is
+   fine: the PDF just lays the table out statically.) */
+table.tv-diff { table-layout: fixed; width: 100%; }
+table.tv-diff th, table.tv-diff td { white-space: normal; word-break: break-word;
+                                     vertical-align: top; }
+table.tv-diff tr > *:nth-child(1) { width: 150px; }
+table.tv-diff tr > *:nth-child(2) { width: 170px; color: #0d5a97; }
+table.tv-diff tr > *:nth-child(3) { width: 90px; }
+table.tv-diff tr > *:nth-child(6) { width: 70px; text-align: right; }
+table.tv-diff tr > td:nth-child(1), table.tv-diff tr > th:nth-child(1) {
+    position: sticky; left: 0; background: #eaf2f9; font-weight: 600; z-index: 1; }
+table.tv-diff th:nth-child(1) { z-index: 3; }
+/* Prose is capped for readability; wide tables above are not. */
+.exclusives { max-width: 900px; }
+.exclusives p { margin: 6px 0; }
+.exclusives .label { color: #0d5a97; font-weight: 600; }
+ul.legend { font-size: 13px; color: #333; padding-left: 20px; max-width: 900px;
+            line-height: 1.7; }
+.muted { color: #6b6b6b; }
+.footer { margin-top: 32px; padding-top: 14px; border-top: 1px solid #e0e1e1;
+          color: #6b6b6b; font-size: 11px; }
+.footer img.symbol { height: 22px; vertical-align: middle; margin-right: 8px; }
+
+/* Column resizer: a thin full-height strip sitting on each column boundary,
+   added by the injected script. Drag from anywhere down the column, not just
+   the header — and no per-cell resize grip is shown. */
+.col-resizer { position: absolute; top: 0; width: 9px; margin-left: -5px;
+               cursor: col-resize; z-index: 5; user-select: none; }
+.col-resizer::before { content: ''; position: absolute; left: 4px; top: 0;
+                       bottom: 0; width: 1px; background: transparent; }
+.col-resizer:hover::before, .col-resizer.dragging::before { background: #116eb7; }
+body.col-resizing { cursor: col-resize; user-select: none; }
+"""
+
+
+# Dependency-free column resizer. CSS `resize` only grabs an element's
+# bottom-right corner and paints a grip glyph on every element it's set on, so
+# "drag from the middle of the column" would need the property on data cells too
+# — a grip in every row. Instead we lay a full-height grab strip on each column
+# boundary. Widths are locked (via a <colgroup>) lazily on the first drag, so the
+# initial layout — and the PDF, whose renderer ignores this script — is untouched.
+_RESIZE_JS = """
+(function () {
+  function setup(table) {
+    var wrap = table.parentNode;
+    var head = table.tHead && table.tHead.rows[0];
+    if (!wrap || !head) return;
+    var cells = head.cells, handles = [], cols = null;
+
+    function locked() { return cols !== null; }
+    function lock() {
+      if (locked()) return;
+      var group = document.createElement('colgroup'), total = 0;
+      for (var i = 0; i < cells.length; i++) {
+        var w = cells[i].getBoundingClientRect().width;
+        var col = document.createElement('col');
+        col.style.width = w + 'px';
+        group.appendChild(col);
+        total += w;
+      }
+      table.insertBefore(group, table.firstChild);
+      table.style.tableLayout = 'fixed';
+      table.style.width = total + 'px';
+      cols = group.children;
+    }
+    function place() {
+      var base = wrap.getBoundingClientRect().left - wrap.scrollLeft;
+      for (var i = 0; i < handles.length; i++) {
+        handles[i].style.left = (cells[i].getBoundingClientRect().right - base) + 'px';
+        handles[i].style.height = table.offsetHeight + 'px';
+      }
+    }
+    function start(idx, handle, downX) {
+      lock();
+      var startW = cols[idx].getBoundingClientRect().width;
+      handle.classList.add('dragging');
+      document.body.classList.add('col-resizing');
+      function move(ev) {
+        cols[idx].style.width = Math.max(40, startW + ev.clientX - downX) + 'px';
+        var total = 0;
+        for (var i = 0; i < cols.length; i++) total += parseFloat(cols[i].style.width);
+        table.style.width = total + 'px';
+        place();
+      }
+      function up() {
+        handle.classList.remove('dragging');
+        document.body.classList.remove('col-resizing');
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+      }
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+    }
+    // One divider per internal boundary; none on the last column's right edge
+    // (that's the table edge, not a boundary — and a handle there would poke a
+    // few px past the content and add a stray horizontal scrollbar).
+    for (var i = 0; i < cells.length - 1; i++) {
+      (function (idx) {
+        var handle = document.createElement('div');
+        handle.className = 'col-resizer';
+        handle.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          start(idx, handle, e.clientX);
+        });
+        wrap.appendChild(handle);
+        handles.push(handle);
+      })(i);
+    }
+    place();
+    window.addEventListener('resize', place);
+    wrap.addEventListener('scroll', place);
+  }
+  var tables = document.querySelectorAll('table.tv-table');
+  for (var i = 0; i < tables.length; i++) setup(tables[i]);
+})();
+"""
+
+
+def _asset_data_uri(name: str) -> str:
+    """Base64-embed a packaged image so the report stays self-contained."""
+    data = (resources.files("theiavalidate") / "assets" / name).read_bytes()
+    return f"data:image/png;base64,{base64.b64encode(data).decode('ascii')}"
+
+
+def render(
+    result: "ComparisonResult",
+    outdir: str,
+    *,
+    prefix: str = "theiavalidate",
+    html: bool = True,
+    pdf: bool = False,
+) -> list[Path]:
+    """Write the report. Returns the paths written (html and/or pdf)."""
+    out = Path(outdir)
+    out.mkdir(parents=True, exist_ok=True)
+    document = _document(result)
+
+    written: list[Path] = []
+    if html:
+        path = out / f"{prefix}_report.html"
+        path.write_text(document, encoding="utf-8")
+        written.append(path)
+    if pdf:
+        written.append(_write_pdf(document, out / f"{prefix}_report.pdf"))
+    return written
+
+
+def _document(result: "ComparisonResult") -> str:
+    title = f"{result.left_name} vs {result.right_name}"
+    symbol = _asset_data_uri("theiagen-symbol.png")
+    return (
+        "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+        f"<title>{_esc(title)}</title>"
+        f"<link rel='icon' type='image/png' href='{symbol}'>"
+        f"<style>{_CSS}</style></head><body>"
+        "<div class='header'>"
+        f"<img class='logo' src='{_asset_data_uri('theiagen-logo-white.png')}'"
+        " alt='Theiagen Genomics'></div>"
+        "<main>"
+        f"<h1>{_esc(title)}</h1>"
+        f"<p class='subtitle'>Validation report — {date.today().isoformat()}</p>"
+        f"{_banner(result.passed)}"
+        f"{_summary_section(result)}"
+        f"{_differences_section(result)}"
+        f"{_exclusives_section(result)}"
+        f"{_legend()}"
+        "<p class='footer'>"
+        f"<img class='symbol' src='{symbol}' alt=''>"
+        "Generated by TheiaValidate™ · Theiagen Genomics</p>"
+        "</main>"
+        f"<script>{_RESIZE_JS}</script>"
+        "</body></html>"
+    )
+
+
+def _banner(passed: bool) -> str:
+    cls, text = ("pass", "PASSED") if passed else ("fail", "DIFFERENCES FOUND")
+    return f"<div class='banner {cls}'>{text}</div>"
+
+
+# n_differences heat scale. Green is reserved strictly for zero, so *any* nonzero
+# count is immediately distinguishable: differences ramp yellow (fewest) -> red
+# (most). Columns where every compared row differs get a distinct "critical"
+# color, flagging them for priority review regardless of the absolute count.
+_HEAT_GREEN = (198, 239, 206)
+_HEAT_YELLOW = (255, 235, 156)
+_HEAT_RED = (255, 199, 206)
+_HEAT_CRITICAL_BG = "#461274"
+_HEAT_CRITICAL_FG = "#ffffff"
+
+
+def _lerp(a: tuple, b: tuple, t: float) -> tuple:
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def _diff_cell_style(n_diff: int, n_compared: int, max_diff: int) -> str:
+    """Inline style for an n_differences cell, per the heat scale above."""
+    if n_compared > 0 and n_diff == n_compared:
+        return (
+            f"background-color: {_HEAT_CRITICAL_BG}; "
+            f"color: {_HEAT_CRITICAL_FG}; font-weight: 700;"
+        )
+    if n_diff <= 0:
+        rgb = _HEAT_GREEN
+    elif max_diff <= 1:
+        # only single-difference columns present: give them the full "few" color
+        rgb = _HEAT_YELLOW
+    else:
+        # ramp yellow (1 difference) -> red (the most differences)
+        t = (n_diff - 1) / (max_diff - 1)
+        rgb = _lerp(_HEAT_YELLOW, _HEAT_RED, t)
+    return f"background-color: rgb{rgb}; color: #1a1a1a;"
+
+
+def _summary_section(result: "ComparisonResult") -> str:
+    summary = result.summary_df()
+    if summary.empty:
+        return "<h2>Summary</h2><p class='muted'>No columns compared.</p>"
+
+    diffs = summary["n_differences"].astype(int)
+    comps = summary["n_compared"].astype(int)
+    critical = (comps > 0) & (diffs == comps)
+    non_critical = diffs[~critical]
+    max_diff = int(non_critical.max()) if len(non_critical) else 0
+
+    # Swap each n_differences value for a unique sentinel, render, then splice a
+    # colored <td> back in. Sentinels use guillemets so HTML-escaping leaves them
+    # untouched; keeping escape on protects the real column names.
+    display = summary.copy()
+    display["n_differences"] = display["n_differences"].astype(object)
+    replacements: list[tuple[str, str]] = []
+    for i, (idx, n) in enumerate(diffs.items()):
+        token = f"«DIFF{i}»"
+        display.loc[idx, "n_differences"] = token
+        style = _diff_cell_style(int(n), int(comps.loc[idx]), max_diff)
+        replacements.append((f"<td>{token}</td>", f'<td style="{style}">{n}</td>'))
+
+    # Render with the index as a normal first column (index=False) so its label,
+    # "column", sits in the single top header row. pandas' default index render
+    # pushes the index name down onto its own second header row.
+    html = display.reset_index().to_html(
+        classes="tv-table tv-summary", border=0, na_rep="", index=False
+    )
+    for old, new in replacements:
+        html = html.replace(old, new)
+    return f"<h2>Summary</h2>{_table(html)}{_heat_legend()}"
+
+
+def _heat_legend() -> str:
+    swatch = (
+        "<span style='display:inline-block;width:11px;height:11px;"
+        "vertical-align:middle;border:1px solid #ccc;margin:0 3px 0 8px;"
+        "background:{bg}'></span>"
+    )
+    return (
+        "<p class='muted' style='margin-top:2px'>"
+        "<b>n_differences</b> shading:"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_GREEN,))}none"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_YELLOW,))}some"
+        f"{swatch.format(bg='rgb%s' % (_HEAT_RED,))}most"
+        f"{swatch.format(bg=_HEAT_CRITICAL_BG)}every compared row differs"
+        "</p>"
+    )
+
+
+def _differences_section(result: "ComparisonResult") -> str:
+    diffs = result.differences_long_df()
+    if diffs.empty:
+        body = "<p class='muted'>No differences found.</p>"
+    else:
+        body = _table(
+            diffs.to_html(
+                classes="tv-table tv-diff", border=0, na_rep="", index=False
+            )
+        )
+    return f"<h2>Differences</h2>{body}"
+
+
+def _exclusives_section(result: "ComparisonResult") -> str:
+    left, right = result.left_name, result.right_name
+    missing = (
+        ", ".join(
+            f"{_esc(col)} ({_esc(where)})"
+            for col, where in result.missing_columns.items()
+        )
+        or "<span class='muted'>none</span>"
+    )
+    return (
+        "<h2>Excluded from comparison</h2><div class='exclusives'>"
+        f"<p><span class='label'>Configured columns missing:</span> {missing}</p>"
+        f"<p><span class='label'>Rows only in {_esc(left)}:</span> "
+        f"{_items(result.rows_only_left)}</p>"
+        f"<p><span class='label'>Rows only in {_esc(right)}:</span> "
+        f"{_items(result.rows_only_right)}</p>"
+        f"<p><span class='label'>Columns only in {_esc(left)} "
+        f"(not compared):</span> {_items(result.columns_only_left)}</p>"
+        f"<p><span class='label'>Columns only in {_esc(right)} "
+        f"(not compared):</span> {_items(result.columns_only_right)}</p>"
+        "</div>"
+    )
+
+
+def _legend() -> str:
+    return (
+        "<h2>Methods</h2><ul class='legend'>"
+        "<li><b>exact</b> — values (or sets/lists) must be equal</li>"
+        "<li><b>ignore</b> — column skipped (always passes)</li>"
+        "<li><b>percent_diff</b> — within a fractional tolerance of each other</li>"
+        "<li><b>range</b> — within an absolute tolerance (days, for dates)</li>"
+        "<li><b>file_exact</b> — referenced files are byte-identical (md5)</li>"
+        "<li><b>any_of(...)</b> — passes if <i>any</i> listed method passes (OR)</li>"
+        "<li><b>all_of(...)</b> — passes only if <i>every</i> listed method passes (AND)</li>"
+        "</ul>"
+    )
+
+
+def _table(inner: str) -> str:
+    return f"<div class='scroll'>{inner}</div>"
+
+
+def _items(values) -> str:
+    if not len(values):
+        return "<span class='muted'>none</span>"
+    return ", ".join(_esc(str(v)) for v in values)
+
+
+def _esc(text: str) -> str:
+    return escape(str(text))
+
+
+def _write_pdf(document: str, path: Path) -> Path:
+
+    options = {
+        "page-size": "Letter",
+        "orientation": "Landscape",
+        "encoding": "UTF-8",
+        "margin-top": "0.25in",
+        "margin-right": "0.25in",
+        "margin-bottom": "0.25in",
+        "margin-left": "0.25in",
+    }
+    pdfkit.from_string(document, str(path), options=options)
+    return path

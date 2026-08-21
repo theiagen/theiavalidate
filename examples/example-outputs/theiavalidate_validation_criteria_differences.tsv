@@ -1,7 +1,0 @@
-Column	assembly_length	assembly_length	gambit_predicted_taxon	gambit_predicted_taxon	amrfinderplus_amr_core_genes	amrfinderplus_amr_core_genes	busco_results	busco_results
-Table	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv	example-table1.tsv	example-table2.tsv
-sample01								
-sample02					sat2	blaCTX-M-27		
-sample03	4719410.0	4987603.0	Shigella	Shigella sonnei	NULL	glpT_E448K, gyrA_D87G, gyrA_S83L, sat2		
-sample04	6674526.0							
-sample05							C:94.0%[S:93.8%,D:0.2%],F:4.0%,M:2.0%,n:402	C:94.0%[S:94.0%],F:3.0%,M:1.0%,n:402
